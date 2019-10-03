@@ -9,8 +9,7 @@ from aer4manager import AERFolderDataset
 
 
 # Parameters
-MODEL_SAVEPATH = './testing_model'
-N_EPOCHS = 10
+BATCH_SIZE = 128
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -41,16 +40,11 @@ test_dataset = AERFolderDataset(
 print("Number of training frames:", len(train_dataset))
 print("Number of testing frames:", len(test_dataset))
 
-train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=128, shuffle=False)
+train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
-test_acc = []
-target_losses = []
-activation_values = []
-
-
-def train(activation_penalty=0., epochs=N_EPOCHS):
+def train(activation_penalty=0., epochs=10, save=False):
     # Define model and learning parameters
     myclass = YundingClassifier().to(device)
     # Define loss
@@ -61,10 +55,12 @@ def train(activation_penalty=0., epochs=N_EPOCHS):
     hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12', 'seq.14']
 
     activation = torch.cuda.FloatTensor([0.])
+    value_to_penalize = torch.cuda.FloatTensor([0.])
 
     def hook(m, i, o):
-        nonlocal activation
-        activation += o.mean()
+        nonlocal activation, value_to_penalize
+        activation += o.sum() / BATCH_SIZE
+        value_to_penalize += penalty_function(o)
 
     for name, module in myclass.named_modules():
         if name in hookable_modules:
@@ -90,16 +86,15 @@ def train(activation_penalty=0., epochs=N_EPOCHS):
 
             optimizer.zero_grad()
             activation = torch.cuda.FloatTensor([0.])
+            value_to_penalize = torch.cuda.FloatTensor([0.])
 
             outputs = myclass(imgs.to(device))
-
             _, predicted = torch.max(outputs, 1)
-            binary_labels = labels  # torch.max(labels, 1)
-            acc = (predicted == binary_labels.to(device)).sum().float() / len(labels)
+            acc = (predicted == labels.to(device)).sum().float() / len(labels)
             accuracy_train.append(acc.cpu().numpy())
 
             target_loss = criterion(outputs, labels)
-            loss = target_loss + activation * activation_penalty
+            loss = target_loss + value_to_penalize * activation_penalty
             running_loss += loss.item()
             loss.backward()
             optimizer.step()
@@ -111,22 +106,22 @@ def train(activation_penalty=0., epochs=N_EPOCHS):
             accuracy = []
             for batch_id, sample in enumerate(test_dataloader):
                 test_data, test_labels = sample
+
                 outputs = myclass(test_data.to(device))
-
                 _, predicted = torch.max(outputs, 1)
-                test_bin_labels = test_labels  # torch.max(test_labels, 1)
-
-                acc = (predicted == test_bin_labels.to(device)).sum().float() / len(test_labels)
+                acc = (predicted == test_labels.to(device)).sum().float() / len(test_labels)
                 accuracy.append(acc.cpu().numpy())
-            accuracy = np.mean(accuracy)
+
+        accuracy = np.mean(accuracy)
         accuracy_train = np.mean(accuracy_train)
 
         pbar.set_postfix(loss=running_loss, accuracy_test=accuracy,
                          accuracy_train=accuracy_train)
 
     # Save trained model
-    # torch.save(myclass.state_dict(), MODEL_SAVEPATH + str(activation_penalty) + '.pt')
-    # print(f"Model saved at {MODEL_SAVEPATH}")
+    if save:
+        torch.save(myclass.state_dict(), 'models/' + save + '.pt')
+        print(f"Model saved at {save}")
 
     activation_values.append(activation.item())
     test_acc.append(accuracy)
@@ -134,8 +129,27 @@ def train(activation_penalty=0., epochs=N_EPOCHS):
 
 
 if __name__ == '__main__':
-    penalties = np.logspace(-3, 0, 10)
+    N_EPOCHS = 30
+
+    # L2 neuron-wise
+    penalties = np.logspace(-3, 1, 10)
+    penalty_function = lambda out: (out.mean(0)**2).sum()
+    name = f"L2_neuronlevel_{N_EPOCHS}_epochs"
+    # # L2 layer-wise
+    # penalties = np.logspace(-6, 0, 10)
+    # penalty_function = lambda out: (out.mean(0).sum())**2
+    # name = f"L2_layerlevel_{N_EPOCHS}_epochs"
+    # # L1 penalty
+    # penalties = np.logspace(-5, -2, 10)
+    # penalty_function = lambda out: out.mean(0).sum()
+    # name = f"L1_sum_{N_EPOCHS}_epochs"
+
+    test_acc = []
+    target_losses = []
+    activation_values = []
+
     for p in penalties:
-        train(p, 1)
-    results = np.asarray([penalties, activation_values, test_acc, target_losses]).T
-    np.savetxt("sim_results.txt", results)
+        train(p, N_EPOCHS, save=name + '_' + str(p))
+    results = np.asarray([penalties, activation_values,
+                          test_acc, target_losses]).T
+    np.savetxt(name + '.txt', results)
