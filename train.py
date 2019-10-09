@@ -44,13 +44,15 @@ train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True
 test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
-def train(activation_penalty=0., epochs=10, save=False):
+def train(penalty_coefficient=0., epochs=10, save=False):
     # Define model and learning parameters
     myclass = YundingClassifier().to(device)
     # Define loss
     criterion = torch.nn.CrossEntropyLoss()
     # Define optimizer
-    optimizer = torch.optim.Adam(myclass.parameters(), lr=1e-3)
+    decay_rate = penalty_coefficient if WEIGHT_DECAY else 0.
+    optimizer = torch.optim.Adam(myclass.parameters(), lr=1e-3,
+                                 weight_decay=decay_rate)
     # set hooks
     hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12', 'seq.14']
 
@@ -94,7 +96,7 @@ def train(activation_penalty=0., epochs=10, save=False):
             accuracy_train.append(acc.cpu().numpy())
 
             target_loss = criterion(outputs, labels)
-            loss = target_loss + value_to_penalize * activation_penalty
+            loss = target_loss + value_to_penalize * penalty_coefficient
             running_loss += loss.item()
             loss.backward()
             optimizer.step()
@@ -130,11 +132,12 @@ def train(activation_penalty=0., epochs=10, save=False):
 
 if __name__ == '__main__':
     N_EPOCHS = 30
+    WEIGHT_DECAY = False
 
     # L2 neuron-wise
-    penalties = np.logspace(-3, 1, 10)
-    penalty_function = lambda out: (out.mean(0)**2).sum()
-    name = f"L2_neuronlevel_{N_EPOCHS}_epochs"
+    penalties = np.logspace(-2.8, -2.2, 10)
+    penalty_function = lambda out: 0.  # (out.mean(0)**2).sum()
+    name = f"weightdecay_{N_EPOCHS}_epochs"
     # # L2 layer-wise
     # penalties = np.logspace(-6, 0, 10)
     # penalty_function = lambda out: (out.mean(0).sum())**2
@@ -152,4 +155,4 @@ if __name__ == '__main__':
         train(p, N_EPOCHS, save=name + '_' + str(p))
     results = np.asarray([penalties, activation_values,
                           test_acc, target_losses]).T
-    np.savetxt(name + '.txt', results)
+    np.savetxt('results/' + name + '.txt', results)
