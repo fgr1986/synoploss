@@ -1,7 +1,7 @@
 from aer4manager import aedatconvert
 
 conv = aedatconvert(
-    data_list_file='./file_list.txt',
+    data_list_file='./file_list_yunding.txt',
     accumulation_method='spikecount',
     accumulation_value=3000,
     test_fraction=0.2,
