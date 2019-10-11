@@ -8,6 +8,12 @@ from model import MNISTClassifier
 from aer4manager import AERFolderDataset
 
 
+def compute_accuracy(output, target):
+    _, predicted = torch.max(output, 1)
+    acc = (predicted == target).sum().float() / len(target)
+    return acc.cpu().numpy()
+
+
 # Parameters
 BATCH_SIZE = 128
 
@@ -42,9 +48,9 @@ def train(penalty_coefficient=0., epochs=10, save=False):
     decay_rate = penalty_coefficient if WEIGHT_DECAY else 0.
     optimizer = torch.optim.Adam(myclass.parameters(), lr=1e-3,
                                  weight_decay=decay_rate)
-    # set hooks
-    hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12', 'seq.14']
 
+    # Set hooks
+    hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12']
     activation = torch.cuda.FloatTensor([0.])
     value_to_penalize = torch.cuda.FloatTensor([0.])
 
@@ -56,7 +62,6 @@ def train(penalty_coefficient=0., epochs=10, save=False):
     for name, module in myclass.named_modules():
         if name in hookable_modules:
             module.register_forward_hook(hook)
-            print(name, module)
 
     # Impose Kaiming He initialization
     for w in myclass.parameters():
@@ -64,50 +69,43 @@ def train(penalty_coefficient=0., epochs=10, save=False):
 
     # Start training
     for epoch in range(epochs):
-        accuracy_train = []
-        # Set to training mode
         myclass.train()
-        running_loss = 0
+        accuracy_train = []
 
         print(f"Epoch {epoch}, training")
         for batch_id, sample in enumerate(tqdm(train_dataloader)):
-            imgs, labels = sample
-            labels = labels.to(device)
-
             optimizer.zero_grad()
+
             activation = torch.cuda.FloatTensor([0.])
             value_to_penalize = torch.cuda.FloatTensor([0.])
 
-            outputs = myclass(imgs.to(device))
-            _, predicted = torch.max(outputs, 1)
-            acc = (predicted == labels.to(device)).sum().float() / len(labels)
-            accuracy_train.append(acc.cpu().numpy())
+            imgs, labels = sample
+            imgs, labels = imgs.to(device), labels.to(device)
+
+            outputs = myclass(imgs)
+            accuracy_train.append(compute_accuracy(outputs, labels))
 
             target_loss = criterion(outputs, labels)
             loss = target_loss + value_to_penalize * penalty_coefficient
-            running_loss += loss.item()
             loss.backward()
             optimizer.step()
 
         # Test network accuracy
         with torch.no_grad():
-            # Set to eval mode
             myclass.eval()
             accuracy = []
+
             print(f"Epoch {epoch}, testing")
             for batch_id, sample in enumerate(tqdm(test_dataloader)):
                 test_data, test_labels = sample
+                test_data = test_data.to(device)
+                test_labels = test_labels.to(device)
 
-                outputs = myclass(test_data.to(device))
-                _, predicted = torch.max(outputs, 1)
-                acc = (predicted == test_labels.to(device)).sum().float() / len(test_labels)
-                accuracy.append(acc.cpu().numpy())
+                outputs = myclass(test_data)
+                accuracy.append(compute_accuracy(outputs, test_labels))
 
-        accuracy = np.mean(accuracy)
-        accuracy_train = np.mean(accuracy_train)
-
-        print(f"loss={running_loss}, accuracy_test={accuracy},",
-              f"accuracy_train={accuracy_train}")
+        print(f"loss={loss.item()}, accuracy_test={np.mean(accuracy)},",
+              f"accuracy_train={np.mean(accuracy_train)}")
 
     # Save trained model
     if save:
@@ -120,7 +118,7 @@ def train(penalty_coefficient=0., epochs=10, save=False):
 
 
 if __name__ == '__main__':
-    N_EPOCHS = 30
+    N_EPOCHS = 5
     WEIGHT_DECAY = False
 
     # L2 neuron-wise
