@@ -15,7 +15,7 @@ def compute_accuracy(output, target):
 
 
 # Parameters
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -36,10 +36,10 @@ print("Number of training frames:", len(train_dataset))
 print("Number of testing frames:", len(test_dataset))
 
 train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 
-def train(penalty_coefficient=0., epochs=10, save=False):
+def train(penalty_coefficient, penalty_function, epochs=10, save=False):
     # Define model and learning parameters
     myclass = MNISTClassifier().to(device)
     # Define loss
@@ -74,6 +74,7 @@ def train(penalty_coefficient=0., epochs=10, save=False):
 
         print(f"Epoch {epoch}, training")
         for batch_id, sample in enumerate(tqdm(train_dataloader)):
+            # if batch_id > 100: break
             optimizer.zero_grad()
 
             activation = torch.cuda.FloatTensor([0.])
@@ -97,6 +98,7 @@ def train(penalty_coefficient=0., epochs=10, save=False):
 
             print(f"Epoch {epoch}, testing")
             for batch_id, sample in enumerate(tqdm(test_dataloader)):
+                # if batch_id > 10: break
                 test_data, test_labels = sample
                 test_data = test_data.to(device)
                 test_labels = test_labels.to(device)
@@ -104,42 +106,63 @@ def train(penalty_coefficient=0., epochs=10, save=False):
                 outputs = myclass(test_data)
                 accuracy.append(compute_accuracy(outputs, test_labels))
 
-        print(f"loss={loss.item()}, accuracy_test={np.mean(accuracy)},",
-              f"accuracy_train={np.mean(accuracy_train)}")
+        accuracy, accuracy_train = np.mean(accuracy), np.mean(accuracy_train)
+        print(f"loss={loss.item()}, accuracy_test={accuracy},",
+              f"accuracy_train={accuracy_train}")
 
     # Save trained model
     if save:
-        torch.save(myclass.state_dict(), 'models/' + save + '.pt')
+        torch.save(myclass.state_dict(),
+                   f'models/{save}_{penalty_coefficient}.pt')
         print(f"Model saved at {save}")
 
-    activation_values.append(activation.item())
-    test_acc.append(accuracy)
-    target_losses.append(target_loss.item())
+    return penalty_coefficient, activation.item(), accuracy, target_loss.item()
+
+
+def launch_trainings(penalties, penalty_function, name):
+    res = []
+    for p in penalties:
+        res.append(train(p, penalty_function=penalty_function,
+                         epochs=N_EPOCHS, save=name))
+
+    results = np.asarray(res)
+    np.savetxt('results/' + name + '.txt', results)
+
+
+def l2neuron_penalty(out):
+    return (out.mean(0)**2).sum()
+
+
+def l2layer_penalty(out):
+    return (out.mean(0).sum())**2
+
+
+def l1_penalty(out):
+    return out.mean(0).sum()
+
+
+def null_penalty(out):
+    return 0.
 
 
 if __name__ == '__main__':
     N_EPOCHS = 5
     WEIGHT_DECAY = False
+    N_MODELS = 20
 
     # L2 neuron-wise
-    penalties = np.logspace(-2.8, -2.2, 10)
-    penalty_function = lambda out: 0.  # (out.mean(0)**2).sum()
-    name = f"weightdecay_{N_EPOCHS}_epochs"
-    # # L2 layer-wise
-    # penalties = np.logspace(-6, 0, 10)
-    # penalty_function = lambda out: (out.mean(0).sum())**2
-    # name = f"L2_layerlevel_{N_EPOCHS}_epochs"
-    # # L1 penalty
-    # penalties = np.logspace(-5, -2, 10)
-    # penalty_function = lambda out: out.mean(0).sum()
-    # name = f"L1_sum_{N_EPOCHS}_epochs"
-
-    test_acc = []
-    target_losses = []
-    activation_values = []
-
-    for p in penalties:
-        train(p, N_EPOCHS, save=name + '_' + str(p))
-    results = np.asarray([penalties, activation_values,
-                          test_acc, target_losses]).T
-    np.savetxt('results/' + name + '.txt', results)
+    penalties = np.logspace(-4, -0, N_MODELS)
+    name = "l2neuron"
+    launch_trainings(penalties, l2neuron_penalty, name)
+    # L2 layer-wise
+    penalties = np.logspace(-8, 0, N_MODELS)
+    name = "l2layer"
+    launch_trainings(penalties, l2layer_penalty, name)
+    # L1 penalty
+    penalties = np.logspace(-5, -2, N_MODELS)
+    name = "l1"
+    launch_trainings(penalties, l1_penalty, name)
+    # no penalty
+    penalties = [0.]
+    name = "nopenalty"
+    launch_trainings(penalties, null_penalty, name)
