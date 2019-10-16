@@ -38,8 +38,16 @@ print("Number of testing frames:", len(test_dataset))
 train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
+hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12']
+fanouts = {'seq.1': 72,
+           'seq.4': 108,
+           'seq.7': 432,
+           'seq.12': 10,
+           }
 
-def train(penalty_coefficient, penalty_function, epochs=10, save=False):
+
+def train(penalty_coefficient, penalty_function,
+          epochs=10, save=False, fanout_weighting=False):
     # Define model and learning parameters
     myclass = MNISTClassifier().to(device)
     # Define loss
@@ -50,17 +58,17 @@ def train(penalty_coefficient, penalty_function, epochs=10, save=False):
                                  weight_decay=decay_rate)
 
     # Set hooks
-    hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12']
     activation = torch.cuda.FloatTensor([0.])
     value_to_penalize = torch.cuda.FloatTensor([0.])
 
     def hook(m, i, o):
         nonlocal activation, value_to_penalize
         activation += o.sum() / BATCH_SIZE
-        value_to_penalize += penalty_function(o)
+        value_to_penalize += penalty_function(o) * m.fanout
 
     for name, module in myclass.named_modules():
         if name in hookable_modules:
+            module.fanout = fanouts[name] if fanout_weighting else 1.
             module.register_forward_hook(hook)
 
     # Impose Kaiming He initialization
@@ -91,24 +99,26 @@ def train(penalty_coefficient, penalty_function, epochs=10, save=False):
             loss.backward()
             optimizer.step()
 
-        # Test network accuracy
-        with torch.no_grad():
-            myclass.eval()
-            accuracy = []
+        accuracy_train = np.mean(accuracy_train)
+        print(f"loss={loss.item()}, accuracy_train={accuracy_train}")
 
-            print(f"Epoch {epoch}, testing")
-            for batch_id, sample in enumerate(tqdm(test_dataloader)):
-                # if batch_id > 10: break
-                test_data, test_labels = sample
-                test_data = test_data.to(device)
-                test_labels = test_labels.to(device)
+    # Test network accuracy
+    with torch.no_grad():
+        myclass.eval()
+        accuracy = []
 
-                outputs = myclass(test_data)
-                accuracy.append(compute_accuracy(outputs, test_labels))
+        print(f"Epoch {epoch}, testing")
+        for batch_id, sample in enumerate(tqdm(test_dataloader)):
+            # if batch_id > 10: break
+            test_data, test_labels = sample
+            test_data = test_data.to(device)
+            test_labels = test_labels.to(device)
 
-        accuracy, accuracy_train = np.mean(accuracy), np.mean(accuracy_train)
-        print(f"loss={loss.item()}, accuracy_test={accuracy},",
-              f"accuracy_train={accuracy_train}")
+            outputs = myclass(test_data)
+            accuracy.append(compute_accuracy(outputs, test_labels))
+
+        accuracy = np.mean(accuracy)
+        print(f"loss={loss.item()}, accuracy_test={accuracy}")
 
     # Save trained model
     if save:
@@ -119,11 +129,11 @@ def train(penalty_coefficient, penalty_function, epochs=10, save=False):
     return penalty_coefficient, activation.item(), accuracy, target_loss.item()
 
 
-def launch_trainings(penalties, penalty_function, name):
+def launch_trainings(penalties, penalty_function, name, fanout=False):
     res = []
     for p in penalties:
-        res.append(train(p, penalty_function=penalty_function,
-                         epochs=N_EPOCHS, save=name))
+        res.append(train(p, penalty_function=penalty_function, epochs=N_EPOCHS,
+                         save=name, fanout_weighting=fanout))
 
     results = np.asarray(res)
     np.savetxt('results/' + name + '.txt', results)
@@ -148,21 +158,25 @@ def null_penalty(out):
 if __name__ == '__main__':
     N_EPOCHS = 5
     WEIGHT_DECAY = False
-    N_MODELS = 20
+    N_MODELS = 7
 
-    # L2 neuron-wise
-    penalties = np.logspace(-4, -0, N_MODELS)
-    name = "l2neuron"
-    launch_trainings(penalties, l2neuron_penalty, name)
-    # L2 layer-wise
-    penalties = np.logspace(-8, 0, N_MODELS)
-    name = "l2layer"
-    launch_trainings(penalties, l2layer_penalty, name)
-    # L1 penalty
-    penalties = np.logspace(-5, -2, N_MODELS)
-    name = "l1"
-    launch_trainings(penalties, l1_penalty, name)
-    # no penalty
-    penalties = [0.]
-    name = "nopenalty"
-    launch_trainings(penalties, null_penalty, name)
+    # # L2 neuron-wise
+    # penalties = np.logspace(-4, -0, N_MODELS)
+    # name = "l2neuron"
+    # launch_trainings(penalties, l2neuron_penalty, name)
+    # # L2 layer-wise
+    # penalties = np.logspace(-8, 0, N_MODELS)
+    # name = "l2layer"
+    # launch_trainings(penalties, l2layer_penalty, name)
+    # # L1 penalty
+    # penalties = np.logspace(-5, -2, N_MODELS)
+    # name = "l1"
+    # launch_trainings(penalties, l1_penalty, name)
+    # # no penalty
+    # penalties = [0.]
+    # name = "nopenalty"
+    # launch_trainings(penalties, null_penalty, name)
+    # L1 penalty with fanout weighing
+    penalties = np.logspace(-4, -2, N_MODELS)[1:]
+    name = "l1fanout"
+    launch_trainings(penalties, l1_penalty, name, fanout=True)
