@@ -91,4 +91,4 @@ if __name__ == '__main__':
 
     # Leave this there.
     results = np.asarray(results)
-    np.savetxt('analog_results_with_fanout.txt', results, fmt='%s')
+    np.savetxt('results/analog_results_with_fanout.txt', results, fmt='%s')

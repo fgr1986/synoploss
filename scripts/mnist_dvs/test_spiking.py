@@ -88,4 +88,4 @@ if __name__ == '__main__':
     # results = np.vstack([thr_descriptor, results[0], results[1]]).T
 
     # Leave this there.
-    np.savetxt('spk_results_fanout.txt', results, fmt='%s')
+    np.savetxt('results/spk_results_fanout.txt', results, fmt='%s')
