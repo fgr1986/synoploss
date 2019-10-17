@@ -47,9 +47,10 @@ fanouts = {'seq.1': 72,
 
 
 def train(penalty_coefficient, penalty_function,
-          epochs=10, save=False, fanout_weighting=False):
+          epochs=10, save=False, fanout_weighting=False,
+          quantize_training=False):
     # Define model and learning parameters
-    myclass = MNISTClassifier().to(device)
+    myclass = MNISTClassifier(quantize=quantize_training).to(device)
     # Define loss
     criterion = torch.nn.CrossEntropyLoss()
     # Define optimizer
@@ -129,11 +130,13 @@ def train(penalty_coefficient, penalty_function,
     return penalty_coefficient, activation.item(), accuracy, target_loss.item()
 
 
-def launch_trainings(penalties, penalty_function, name, fanout=False):
+def launch_trainings(penalties, penalty_function, name, fanout=False,
+                     quantize_training=False):
     res = []
     for p in penalties:
         res.append(train(p, penalty_function=penalty_function, epochs=N_EPOCHS,
-                         save=name, fanout_weighting=fanout))
+                         save=name, fanout_weighting=fanout,
+                         quantize_training=quantize_training))
 
     results = np.asarray(res)
     np.savetxt('results/' + name + '.txt', results)
@@ -158,7 +161,7 @@ def null_penalty(out):
 if __name__ == '__main__':
     N_EPOCHS = 5
     WEIGHT_DECAY = False
-    N_MODELS = 7
+    N_MODELS = 20
 
     # # L2 neuron-wise
     # penalties = np.logspace(-4, -0, N_MODELS)
@@ -177,6 +180,7 @@ if __name__ == '__main__':
     # name = "nopenalty"
     # launch_trainings(penalties, null_penalty, name)
     # L1 penalty with fanout weighing
-    penalties = np.logspace(-4, -2, N_MODELS)[1:]
-    name = "l1fanout"
-    launch_trainings(penalties, l1_penalty, name, fanout=True)
+    penalties = np.logspace(-10, -4, N_MODELS)
+    name = "l1fanout_qtrain"
+    launch_trainings(penalties, l1_penalty, name, fanout=True,
+                     quantize_training=True)

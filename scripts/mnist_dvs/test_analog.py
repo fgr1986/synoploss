@@ -16,6 +16,7 @@ def compute_accuracy(output, target):
 
 # Parameters
 BATCH_SIZE = 256
+QUANTIZE = True
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -38,12 +39,18 @@ fanouts = {'seq.1': 72,
            }
 
 
-def test(path):
+def test(path, w_rescale=1.0):
     # Define model and learning parameters
-    myclass = MNISTClassifier().to(device)
+    myclass = MNISTClassifier(quantize=QUANTIZE).to(device)
 
     # Load appropriate model
-    myclass.load_state_dict(torch.load(path))
+    state_dict = torch.load(path)
+
+    # Do rescaling
+    if w_rescale != 1.0:
+        state_dict['seq.0.weight'] *= w_rescale
+
+    myclass.load_state_dict(state_dict)
 
     # Set hooks
     activation = torch.cuda.FloatTensor([0.])
@@ -65,7 +72,7 @@ def test(path):
         accuracy = []
 
         for batch_id, sample in enumerate(tqdm(test_dataloader)):
-            if batch_id > 10: break
+            if batch_id > 50: break
             test_data, test_labels = sample
             test_data = test_data.to(device)
             test_labels = test_labels.to(device)
@@ -81,14 +88,20 @@ def test(path):
 
 if __name__ == '__main__':
     import glob
-    # from multiprocessing import Pool
 
     # Use this for the whole list of trained models
-    models_list = glob.glob('models/l1fanout*')
-    # P = Pool(10)
-    results = list(map(test, models_list))
-    # P.close()
+    # models_list = glob.glob('models/*')
+    # results = list(map(test, models_list))
 
-    # Leave this there.
+    # results = np.asarray(results)
+    # print(results)
+    # np.savetxt('results/analog_nonquant_tests.txt', results, fmt='%s')
+
+    # Use this for a single model, but weight scaling
+    model_path = "models/nopenalty_0.0.pt"
+    scales = np.arange(0.1, 1.0, 0.1)
+    results = [test(model_path, w_rescale) for w_rescale in scales]
+
     results = np.asarray(results)
-    np.savetxt('results/analog_results_with_fanout.txt', results, fmt='%s')
+    print(results)
+    np.savetxt('results/weightscaled_quantized_tests.txt', results, fmt='%s')
