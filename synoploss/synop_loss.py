@@ -8,7 +8,6 @@ class SynOpLoss(object):
         self.modules = []
         for module in modules:
             if isinstance(module, NeuromorphicReLU) and module.fanout > 0:
-                print(module)
                 self.modules.append(module)
 
         if len(self.modules) == 0:

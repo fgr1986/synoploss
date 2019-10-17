@@ -1,5 +1,5 @@
 import torch
-from bp_quantize import NeuromorphicReLU
+from synoploss import NeuromorphicReLU
 
 
 class MNISTClassifier(torch.nn.Module):

@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 
 from model import MNISTClassifier
 from aer4manager import AERFolderDataset
+from synoploss import SynOpLoss
 
 
 def compute_accuracy(output, target):
@@ -17,7 +18,7 @@ def compute_accuracy(output, target):
 # Parameters
 BATCH_SIZE = 256
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Prepare datasets and dataloaders
 train_dataset = AERFolderDataset(
@@ -38,47 +39,26 @@ print("Number of testing frames:", len(test_dataset))
 train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12']
-fanouts = {'seq.1': 72,
-           'seq.4': 108,
-           'seq.7': 432,
-           'seq.12': 10,
-           }
-
 
 def train(penalty_coefficient, penalty_function,
           epochs=10, save=False, fanout_weighting=False,
           quantize_training=False):
+    print(f"Quantize training: {quantize_training}")
     # Define model and learning parameters
-    myclass = MNISTClassifier(quantize=quantize_training).to(device)
+    classifier = MNISTClassifier(quantize=quantize_training).to(device)
     # Define loss
     criterion = torch.nn.CrossEntropyLoss()
+    synops_criterion = SynOpLoss(classifier.modules())
     # Define optimizer
-    decay_rate = penalty_coefficient if WEIGHT_DECAY else 0.
-    optimizer = torch.optim.Adam(myclass.parameters(), lr=1e-3,
-                                 weight_decay=decay_rate)
-
-    # Set hooks
-    activation = torch.cuda.FloatTensor([0.])
-    value_to_penalize = torch.cuda.FloatTensor([0.])
-
-    def hook(m, i, o):
-        nonlocal activation, value_to_penalize
-        activation += o.sum() / BATCH_SIZE
-        value_to_penalize += penalty_function(o) * m.fanout
-
-    for name, module in myclass.named_modules():
-        if name in hookable_modules:
-            module.fanout = fanouts[name] if fanout_weighting else 1.
-            module.register_forward_hook(hook)
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=1e-3)
 
     # Impose Kaiming He initialization
-    for w in myclass.parameters():
+    for w in classifier.parameters():
         torch.nn.init.kaiming_uniform_(w, nonlinearity='relu')
 
     # Start training
     for epoch in range(epochs):
-        myclass.train()
+        classifier.train()
         accuracy_train = []
 
         print(f"Epoch {epoch}, training")
@@ -86,17 +66,16 @@ def train(penalty_coefficient, penalty_function,
             # if batch_id > 100: break
             optimizer.zero_grad()
 
-            activation = torch.cuda.FloatTensor([0.])
-            value_to_penalize = torch.cuda.FloatTensor([0.])
-
             imgs, labels = sample
             imgs, labels = imgs.to(device), labels.to(device)
 
-            outputs = myclass(imgs)
+            outputs = classifier(imgs)
             accuracy_train.append(compute_accuracy(outputs, labels))
 
             target_loss = criterion(outputs, labels)
-            loss = target_loss + value_to_penalize * penalty_coefficient
+            synops_loss = synops_criterion()
+            loss = target_loss + penalty_coefficient * synops_loss
+
             loss.backward()
             optimizer.step()
 
@@ -105,7 +84,7 @@ def train(penalty_coefficient, penalty_function,
 
     # Test network accuracy
     with torch.no_grad():
-        myclass.eval()
+        classifier.eval()
         accuracy = []
 
         print(f"Epoch {epoch}, testing")
@@ -115,31 +94,26 @@ def train(penalty_coefficient, penalty_function,
             test_data = test_data.to(device)
             test_labels = test_labels.to(device)
 
-            outputs = myclass(test_data)
+            outputs = classifier(test_data)
+            activity = synops_criterion()
             accuracy.append(compute_accuracy(outputs, test_labels))
 
         accuracy = np.mean(accuracy)
-        print(f"loss={loss.item()}, accuracy_test={accuracy}")
+        activity = activity.item()
+        print(f"activity={activity}, accuracy_test={accuracy}")
 
     # Save trained model
     if save:
-        torch.save(myclass.state_dict(),
-                   f'models/{save}_{penalty_coefficient}.pt')
-        print(f"Model saved at {save}")
+        savefile = f'models/{save}_{penalty_coefficient}.pt'
+        torch.save(classifier.state_dict(), savefile)
+        print(f"Model saved at {savefile}")
 
-    return penalty_coefficient, activation.item(), accuracy, target_loss.item()
+    with open("training_log.txt", "a") as f:
+        f.write(f"{save} {penalty_coefficient} {epochs} {quantize_training} "
+                f"{fanout_weighting} {activity} {accuracy} "
+                f"{target_loss.item()} {savefile}\n")
 
-
-def launch_trainings(penalties, penalty_function, name, fanout=False,
-                     quantize_training=False):
-    res = []
-    for p in penalties:
-        res.append(train(p, penalty_function=penalty_function, epochs=N_EPOCHS,
-                         save=name, fanout_weighting=fanout,
-                         quantize_training=quantize_training))
-
-    results = np.asarray(res)
-    np.savetxt('results/' + name + '.txt', results)
+    return penalty_coefficient, activity, accuracy, target_loss.item()
 
 
 def l2neuron_penalty(out):
@@ -159,9 +133,14 @@ def null_penalty(out):
 
 
 if __name__ == '__main__':
-    N_EPOCHS = 5
-    WEIGHT_DECAY = False
-    N_MODELS = 20
+
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--quantize_training', action='store_true',
+                        default=False)
+    parser.add_argument('--n_epochs', type=int, default=5)
+    parser.add_argument('--n_models', type=int, default=10)
+    opt = parser.parse_args()
 
     # # L2 neuron-wise
     # penalties = np.logspace(-4, -0, N_MODELS)
@@ -179,8 +158,16 @@ if __name__ == '__main__':
     # penalties = [0.]
     # name = "nopenalty"
     # launch_trainings(penalties, null_penalty, name)
+
     # L1 penalty with fanout weighing
-    penalties = np.logspace(-10, -4, N_MODELS)
-    name = "l1fanout_qtrain"
-    launch_trainings(penalties, l1_penalty, name, fanout=True,
-                     quantize_training=True)
+    penalties = np.logspace(-9, -5, opt.n_models)
+    name = "l1-fanout" + ('-qtrain' if opt.quantize_training else '')
+    for p in penalties:
+        train(
+            p,
+            penalty_function=l1_penalty,
+            epochs=opt.n_epochs,
+            save=name,
+            fanout_weighting=True,
+            quantize_training=opt.quantize_training,
+        )

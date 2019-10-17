@@ -8,6 +8,13 @@ import numpy as np
 import argparse
 import uuid
 
+"""
+This file is to demonstrate the usefulness of quantization-aware
+training. It trains a network either quantized or non quantized (see
+the --quantize_training option). It then tests the network with and
+without quantization.
+"""
+
 # ## LOAD ARGUMENTS ## #
 parser = argparse.ArgumentParser()
 parser.add_argument('--quantize_training', action='store_true', default=False)
