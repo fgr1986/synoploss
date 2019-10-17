@@ -1,5 +1,5 @@
-from synops_loss import SynOpsLoss
-from bp_quantize import NeuromorphicReLU
+from synoploss import SynOpLoss
+from synoploss import NeuromorphicReLU
 import torch
 import numpy as np
 
@@ -46,14 +46,14 @@ class TinyModel(torch.nn.Module):
 
 def test_parsing():
     model = Model()
-    loss = SynOpsLoss(model.modules())
+    loss = SynOpLoss(model.modules())
 
     assert len(loss.modules) == 3
 
 
 def test_loss():
     model = TinyModel(quantize=False)
-    criterion = SynOpsLoss(model.modules())
+    criterion = SynOpLoss(model.modules())
 
     input = torch.tensor([[0.5, 0.5, 0.5, 0.5, 0.5]])
     model(input)
@@ -65,7 +65,7 @@ def test_loss():
 
 def test_loss_quantized():
     model = TinyModel(quantize=True)
-    criterion = SynOpsLoss(model.modules())
+    criterion = SynOpLoss(model.modules())
 
     input = torch.tensor([[0.5, 0.5, 0.5, 0.5, 0.5]])
     model(input)

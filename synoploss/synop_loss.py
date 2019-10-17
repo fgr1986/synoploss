@@ -1,8 +1,8 @@
 import torch
-from bp_quantize import NeuromorphicReLU
+from synoploss import NeuromorphicReLU
 
 
-class SynOpsLoss(object):
+class SynOpLoss(object):
 
     def __init__(self, modules):
         self.modules = []
