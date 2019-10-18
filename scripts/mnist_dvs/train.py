@@ -40,8 +40,8 @@ train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True
 test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 
-def train(penalty_coefficient, penalty_function,
-          epochs=10, save=False, fanout_weighting=False,
+def train(penalty_coefficient,
+          epochs=10, save=False,
           quantize_training=False):
     print(f"Quantize training: {quantize_training}")
     # Define model and learning parameters
@@ -110,26 +110,10 @@ def train(penalty_coefficient, penalty_function,
 
     with open("training_log.txt", "a") as f:
         f.write(f"{save} {penalty_coefficient} {epochs} {quantize_training} "
-                f"{fanout_weighting} {activity} {accuracy} "
+                f"{True} {activity} {accuracy} "  # True for backward compat
                 f"{target_loss.item()} {savefile}\n")
 
     return penalty_coefficient, activity, accuracy, target_loss.item()
-
-
-def l2neuron_penalty(out):
-    return (out.mean(0)**2).sum()
-
-
-def l2layer_penalty(out):
-    return (out.mean(0).sum())**2
-
-
-def l1_penalty(out):
-    return out.mean(0).sum()
-
-
-def null_penalty(out):
-    return 0.
 
 
 if __name__ == '__main__':
@@ -146,10 +130,8 @@ if __name__ == '__main__':
     name = "nopenalty" + ('-qtrain' if opt.quantize_training else '')
     train(
         0.0,
-        penalty_function=null_penalty,
         epochs=opt.n_epochs,
         save=name,
-        fanout_weighting=True,
         quantize_training=opt.quantize_training,
     )
 
@@ -159,9 +141,7 @@ if __name__ == '__main__':
     for p in penalties:
         train(
             p,
-            penalty_function=l1_penalty,
             epochs=opt.n_epochs,
             save=name,
-            fanout_weighting=True,
             quantize_training=opt.quantize_training,
         )
