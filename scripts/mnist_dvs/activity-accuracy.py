@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # Go for testing
     results = np.asarray([test(model) for model in chosen_models]).T
     results = np.vstack([chosen_penalties, results[0], results[1]]).T
-    np.savetxt(f'results/{chosen_name}_quantized_{opt.quantize_testing}.txt',
+    np.savetxt(f'results/{chosen_name}_qtest_{opt.quantize_testing}.txt',
                results, fmt='%s')
 
     # # Use this for a single model, but weight scaling
