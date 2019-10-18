@@ -89,31 +89,38 @@ def test(path, w_rescale=1.0):
 if __name__ == '__main__':
     print("Quantized testing:", opt.quantize_testing)
 
-    # Get the whole list of trained models
-    f = np.loadtxt('training_log.txt', dtype=str).T
-    names, penalties, models = f[0], f[1].astype(np.float), f[-1]
+    # # Get the whole list of trained models
+    # f = np.loadtxt('training_log.txt', dtype=str).T
+    # names, penalties, models = f[0], f[1].astype(np.float), f[-1]
 
-    # Select one kind of model, and test them all
-    chosen_name = "l1-fanout"
-    print(chosen_name)
-    idx = names == chosen_name
-    chosen_models = models[idx]
-    chosen_penalties = penalties[idx]
+    # # Select one kind of model, and test them all
+    # chosen_name = "l1-fanout"
+    # print(chosen_name)
+    # idx = names == chosen_name
+    # chosen_models = models[idx]
+    # chosen_penalties = penalties[idx]
 
-    # check quantization during training
-    was_quantized_training = f[3][idx] == 'True'
-    assert all(~was_quantized_training)
+    # # check quantization during training
+    # was_quantized_training = f[3][idx] == 'True'
+    # assert all(~was_quantized_training)
 
-    # Go for testing
-    results = np.asarray([test(model) for model in chosen_models]).T
-    results = np.vstack([chosen_penalties, results[0], results[1]]).T
-    np.savetxt(f'results/{chosen_name}_qtest_{opt.quantize_testing}.txt',
-               results, fmt='%s')
+    # # Go for testing
+    # results = np.asarray([test(model) for model in chosen_models]).T
+    # results = np.vstack([chosen_penalties, results[0], results[1]]).T
+    # np.savetxt(f'results/{chosen_name}_qtest_{opt.quantize_testing}.txt',
+    #            results, fmt='%s')
 
     # # Use this for a single model, but weight scaling
     # model_path = "models/nopenalty_0.0.pth"
     # scales = np.arange(0.1, 1.0, 0.05)
     # results = np.asarray([test(model_path, w_scale) for w_scale in scales]).T
     # results = np.vstack([scales, results[0], results[1]]).T
-    # np.savetxt(f'results/weightscale_quantized_{opt.quantize_testing}.txt',
+    # np.savetxt(f'results/weightscale_qtest_{opt.quantize_testing}.txt',
     #            results, fmt='%s')
+
+    # Test the original model
+    model_path = "models/nopenalty_0.0.pth"
+    results = test(model_path, 1.0)
+    results = np.asarray([[0.0, results[0], results[1]]])
+    np.savetxt(f'results/nopenalty_qtest_{opt.quantize_testing}.txt',
+               results, fmt='%s')
