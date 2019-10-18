@@ -104,7 +104,7 @@ def train(penalty_coefficient, penalty_function,
 
     # Save trained model
     if save:
-        savefile = f'models/{save}_{penalty_coefficient}.pt'
+        savefile = f'models/{save}_{penalty_coefficient}.pth'
         torch.save(classifier.state_dict(), savefile)
         print(f"Model saved at {savefile}")
 
@@ -142,22 +142,16 @@ if __name__ == '__main__':
     parser.add_argument('--n_models', type=int, default=10)
     opt = parser.parse_args()
 
-    # # L2 neuron-wise
-    # penalties = np.logspace(-4, -0, N_MODELS)
-    # name = "l2neuron"
-    # launch_trainings(penalties, l2neuron_penalty, name)
-    # # L2 layer-wise
-    # penalties = np.logspace(-8, 0, N_MODELS)
-    # name = "l2layer"
-    # launch_trainings(penalties, l2layer_penalty, name)
-    # # L1 penalty
-    # penalties = np.logspace(-5, -2, N_MODELS)
-    # name = "l1"
-    # launch_trainings(penalties, l1_penalty, name)
-    # # no penalty
-    # penalties = [0.]
-    # name = "nopenalty"
-    # launch_trainings(penalties, null_penalty, name)
+    # no penalty
+    name = "nopenalty" + ('-qtrain' if opt.quantize_training else '')
+    train(
+        0.0,
+        penalty_function=null_penalty,
+        epochs=opt.n_epochs,
+        save=name,
+        fanout_weighting=True,
+        quantize_training=opt.quantize_training,
+    )
 
     # L1 penalty with fanout weighing
     penalties = np.logspace(-9, -5, opt.n_models)
