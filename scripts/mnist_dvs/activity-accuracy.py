@@ -87,6 +87,8 @@ def test(path, w_rescale=1.0):
 
 
 if __name__ == '__main__':
+    import os
+    os.makedirs('results', exist_ok=True)
     print("Quantized testing:", opt.quantize_testing)
 
     # # Get the whole list of trained models

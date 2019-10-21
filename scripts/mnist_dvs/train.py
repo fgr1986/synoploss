@@ -1,5 +1,7 @@
 from tqdm import tqdm
 import numpy as np
+import os
+
 import torch
 import torchvision.transforms as ttr
 from torch.utils.data import DataLoader
@@ -19,6 +21,7 @@ def compute_accuracy(output, target):
 BATCH_SIZE = 256
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+os.makedirs('models', exist_ok=True)
 
 # Prepare datasets and dataloaders
 train_dataset = AERFolderDataset(

@@ -63,19 +63,21 @@ def test_spiking(path_to_weights, w_rescale=1.0):
             correctness = (predicted == test_labels.to(device))
             accuracy.append(correctness.cpu().numpy())
 
-    return np.mean(accuracy), np.mean(synops)
+    return np.mean(synops), np.mean(accuracy)
 
 
 if __name__ == '__main__':
     from multiprocessing import Pool
-    P = Pool(5)
+    import os
+    os.makedirs('results', exist_ok=True)
+    P = Pool(4)
 
     # Get the whole list of trained models
     f = np.loadtxt('training_log.txt', dtype=str).T
     names, penalties, models = f[0], f[1].astype(np.float), f[-1]
 
     # Select one kind of model, and test them all
-    chosen_name = "l1-fanout-qtrain"
+    chosen_name = "l1-fanout"
     print(chosen_name)
     idx = names == chosen_name
     chosen_models = models[idx]
@@ -83,7 +85,7 @@ if __name__ == '__main__':
 
     # check quantization during training
     was_quantized_training = f[3][idx] == 'True'
-    assert all(was_quantized_training)
+    assert all(~was_quantized_training)
 
     # Go for testing
     results = np.asarray(P.map(test_spiking, chosen_models)).T
@@ -91,17 +93,17 @@ if __name__ == '__main__':
     np.savetxt(f'results/{chosen_name}_spiking.txt',
                results, fmt='%s')
 
-    # Use this for a single model, but weight scaling
-    model_path = "models/nopenalty_0.0.pth"
-    scales = np.arange(0.1, 1.0, 0.05)
-    results = np.asarray([test_spiking(model_path, w_scale) for w_scale in scales]).T
-    results = np.vstack([scales, results[0], results[1]]).T
-    np.savetxt(f'results/weightscale_spiking.txt',
-               results, fmt='%s')
+    # # Use this for a single model, but weight scaling
+    # model_path = "models/nopenalty_0.0.pth"
+    # scales = np.arange(0.1, 1.0, 0.05)
+    # results = np.asarray([test_spiking(model_path, w_scale) for w_scale in scales]).T
+    # results = np.vstack([scales, results[0], results[1]]).T
+    # np.savetxt(f'results/weightscale_spiking.txt',
+    #            results, fmt='%s')
 
-    # Test the original model
-    model_path = "models/nopenalty_0.0.pth"
-    results = test_spiking(model_path, 1.0)
-    results = np.asarray([[0.0, results[0], results[1]]])
-    np.savetxt(f'results/nopenalty_spiking.txt',
-               results, fmt='%s')
+    # # Test the original model
+    # model_path = "models/nopenalty_0.0.pth"
+    # results = test_spiking(model_path, 1.0)
+    # results = np.asarray([[0.0, results[0], results[1]]])
+    # np.savetxt(f'results/nopenalty_spiking.txt',
+    #            results, fmt='%s')
