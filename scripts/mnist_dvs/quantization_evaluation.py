@@ -7,6 +7,7 @@ from tqdm import tqdm
 import numpy as np
 import argparse
 import uuid
+import os
 
 """
 This file is to demonstrate the usefulness of quantization-aware
@@ -110,6 +111,7 @@ def evaluate(state_dict, quantize_testing):
 acc_quantized = evaluate(classifier.state_dict(), True)
 acc_analog = evaluate(classifier.state_dict(), False)
 
-with open("quantization/results.txt", "a") as f:
+os.makedirs('results', exist_ok=True)
+with open("results/quantization_evaluation.txt", "a") as f:
     f.write(f"{hash}\t{opt.quantize_training}\tTrue\t{acc_quantized}\n")
     f.write(f"{hash}\t{opt.quantize_training}\tFalse\t{acc_analog}\n")

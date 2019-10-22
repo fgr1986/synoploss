@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-def test_spiking(path_to_weights, threshold=1.0):
+def test_spiking(path_to_weights, w_rescale=1.0):
     # instantiate dataloader
     test_dataset = AERFolderDataset(
         root='data/test',
@@ -16,19 +16,25 @@ def test_spiking(path_to_weights, threshold=1.0):
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset, batch_size=1, shuffle=True
     )
+
     # load the model
-    weight_dict = torch.load(path_to_weights)
+    state_dict = torch.load(path_to_weights)
+
+    # Do rescaling
+    if w_rescale != 1.0:
+        state_dict['seq.0.weight'] *= w_rescale
+
     model = MNISTClassifier()
-    model.load_state_dict(weight_dict)
+    model.load_state_dict(state_dict)
 
     in_shape = (1, 64, 64)
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     net = from_model(
         model,
         in_shape,
-        threshold=threshold,
-        membrane_subtract=threshold,
+        threshold=1.0,
+        membrane_subtract=1.0,
         threshold_low=-1.0
     ).to(device)
     net.spiking_model.eval()
@@ -39,7 +45,7 @@ def test_spiking(path_to_weights, threshold=1.0):
     with torch.no_grad():
         # loop over the input files
         for i, sample in enumerate(tqdm(test_dataloader)):
-            if i > 10000: break
+            if i > 1000: break
             test_data, test_labels = sample
             input_frames = test_data[0].to(device)
             input_frames = input_frames.unsqueeze(1)
@@ -57,35 +63,47 @@ def test_spiking(path_to_weights, threshold=1.0):
             correctness = (predicted == test_labels.to(device))
             accuracy.append(correctness.cpu().numpy())
 
-    return np.mean(accuracy), np.mean(synops)
-
-
-def test_varying_thres(threshold):
-    model = 'models/nopenalty_0.0.pt'
-    return test_spiking(model, threshold=threshold)
+    return np.mean(synops), np.mean(accuracy)
 
 
 if __name__ == '__main__':
-    import glob
     from multiprocessing import Pool
+    import os
+    os.makedirs('results', exist_ok=True)
+    P = Pool(4)
 
-    # Use this for the whole list of trained models
-    models_list = glob.glob('models/l1fanout*')
-    P = Pool(10)
-    results = P.map(test_spiking, models_list)
-    P.close()
-    results = np.array(results).T
-    results = np.vstack([models_list, results[0], results[1]]).T
+    # Get the whole list of trained models
+    f = np.loadtxt('training_log.txt', dtype=str).T
+    names, penalties, models = f[0], f[1].astype(np.float), f[-1]
 
-    # # Use below for variable threshold
-    # thresholds = np.arange(1, 4, 0.3)
-    # thr_descriptor = [f'nopen_thres_30_epochs_{thr}' for thr in thresholds]
+    # Select one kind of model, and test them all
+    chosen_name = "l1-fanout"
+    print(chosen_name)
+    idx = names == chosen_name
+    chosen_models = models[idx]
+    chosen_penalties = penalties[idx]
 
-    # P = Pool(5)
-    # results = P.map(test_varying_thres, thresholds)
-    # P.close()
-    # results = np.array(results).T
-    # results = np.vstack([thr_descriptor, results[0], results[1]]).T
+    # check quantization during training
+    was_quantized_training = f[3][idx] == 'True'
+    assert all(~was_quantized_training)
 
-    # Leave this there.
-    np.savetxt('results/spk_results_fanout.txt', results, fmt='%s')
+    # Go for testing
+    results = np.asarray(P.map(test_spiking, chosen_models)).T
+    results = np.vstack([chosen_penalties, results[0], results[1]]).T
+    np.savetxt(f'results/{chosen_name}_spiking.txt',
+               results, fmt='%s')
+
+    # # Use this for a single model, but weight scaling
+    # model_path = "models/nopenalty_0.0.pth"
+    # scales = np.arange(0.1, 1.0, 0.05)
+    # results = np.asarray([test_spiking(model_path, w_scale) for w_scale in scales]).T
+    # results = np.vstack([scales, results[0], results[1]]).T
+    # np.savetxt(f'results/weightscale_spiking.txt',
+    #            results, fmt='%s')
+
+    # # Test the original model
+    # model_path = "models/nopenalty_0.0.pth"
+    # results = test_spiking(model_path, 1.0)
+    # results = np.asarray([[0.0, results[0], results[1]]])
+    # np.savetxt(f'results/nopenalty_spiking.txt',
+    #            results, fmt='%s')
