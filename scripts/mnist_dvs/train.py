@@ -45,7 +45,8 @@ test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 def train(penalty_coefficient,
           epochs=10, save=False,
-          quantize_training=False):
+          quantize_training=False,
+          as_target_synops=False):
     print(f"Quantize training: {quantize_training}")
     # Define model and learning parameters
     classifier = MNISTClassifier(quantize=quantize_training).to(device)
@@ -76,8 +77,14 @@ def train(penalty_coefficient,
             accuracy_train.append(compute_accuracy(outputs, labels))
 
             target_loss = criterion(outputs, labels)
-            synops_loss = synops_criterion()
-            loss = target_loss + penalty_coefficient * synops_loss
+            if as_target_synops:
+                # interprets penalty_coefficient as desired number of synops
+                targ_syn = penalty_coefficient
+                synops_loss = ((synops_criterion() - targ_syn) / targ_syn) ** 2
+            else:
+                # interprets penalty_coefficient as alpha
+                synops_loss = penalty_coefficient * synops_criterion()
+            loss = target_loss + synops_loss
 
             loss.backward()
             optimizer.step()
