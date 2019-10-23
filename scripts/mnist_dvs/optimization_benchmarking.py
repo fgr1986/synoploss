@@ -31,13 +31,6 @@ print("Number of testing frames:", len(test_dataset))
 
 test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-hookable_modules = ['seq.1', 'seq.4', 'seq.7', 'seq.12']
-fanouts = {'seq.1': 72,
-           'seq.4': 108,
-           'seq.7': 432,
-           'seq.12': 10,
-           }
-
 
 def detach(activity):
     for activations in activity:
@@ -85,24 +78,28 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     # test non-optimized model
-    baseline_activity = test(baseline_model)
+    baseline_activity = test('models/nopenalty_0.0.pth')
 
     # test optimized model
-    optimized_activity = test(optimized_model)
+    optimized_activity = test('models/l1-fanout-qtrain_4.0842386526745176e-07.pth')
 
     # compute reduction in activity
     baseline_activity = np.mean(baseline_activity, axis=0)
     optimized_activity = np.mean(optimized_activity, axis=0)
-    total_reduction = np.sum(np.abs(baseline_activity - optimized_activity))/np.sum(baseline_activity)
+    total_reduction = np.sum(np.abs(baseline_activity - optimized_activity)) / np.sum(baseline_activity)
 
     # plot layer by layer comparison
-    layers = ['ReLU1', 'ReLU2', 'ReLU3']
+    layers = ['ReLU1', 'ReLU2', 'ReLU3', 'ReLU4']
     fig, ax = plt.subplots()
     xticks = np.arange(len(layers))
-    ax.bar(xticks-0.2, baseline_activity, width=0.4, align='center', log=True, label="baseline")
-    ax.bar(xticks+0.2, optimized_activity, width=0.4, align='center', log=True, label="optimized")
+    ax.bar(xticks - 0.2, baseline_activity / 1e6, width=0.4, align='center',
+           label="Baseline", color='C3')
+    ax.bar(xticks + 0.2, optimized_activity / 1e6, width=0.4,
+           align='center', label=r"SynOp + Quant., $\alpha = 4.08\times 10^{-7}$", color='C0')
     ax.set_xticks(xticks)
-    ax.set_xticklabels(layers, fontdict={'fontsize': 8}, rotation=15)
-    ax.set_ylabel("mean activation [spikes/s]")
-    ax.legend(loc="upper left")
-    ax.text(0.2, 0.85, f"Total reduction in activity: {total_reduction*100:.2f}%", transform=ax.transAxes)
+    ax.set_xticklabels(layers)
+    ax.set_ylabel(r"Estimated synaptic operations ($\times 10^6$)")
+    ax.legend(loc="upper right")
+    ax.set_title("Synaptic operations per layer, optimized model vs. baseline")
+    plt.show()
+    fig.savefig('figures/compare.pdf')
