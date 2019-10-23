@@ -73,3 +73,15 @@ def test_loss_quantized():
     loss = criterion()
 
     assert np.allclose(loss.item(), 4.)
+
+
+def test_layer_synops():
+    model = Model()
+    criterion = SynOpLoss(model.modules(), sum_activations=False)
+
+    input = torch.rand([1, 1, 64, 64])
+    model(input)
+
+    loss = criterion()
+
+    assert len(loss) == 3

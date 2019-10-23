@@ -4,7 +4,7 @@ from synoploss import NeuromorphicReLU
 
 class SynOpLoss(object):
 
-    def __init__(self, modules):
+    def __init__(self, modules, sum_activations=True):
         self.modules = []
         for module in modules:
             if isinstance(module, NeuromorphicReLU) and module.fanout > 0:
@@ -13,9 +13,12 @@ class SynOpLoss(object):
         if len(self.modules) == 0:
             raise ValueError("No NeuromorphicReLU found in module list.")
 
+        self.sum_activations = sum_activations
+
     def __call__(self):
-        device = self.modules[0].activity.device
-        synops = torch.tensor([0.]).to(device)
+        synops = []
         for module in self.modules:
-            synops += module.activity
+            synops.append(module.activity)
+        if self.sum_activations:
+            synops = torch.stack(synops).sum()
         return synops
