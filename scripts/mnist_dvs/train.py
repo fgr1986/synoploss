@@ -132,26 +132,27 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--quantize_training', action='store_true',
                         default=False)
-    parser.add_argument('--n_epochs', type=int, default=5)
+    parser.add_argument('--n_epochs', type=int, default=8)
     parser.add_argument('--n_models', type=int, default=10)
     opt = parser.parse_args()
 
-    # no penalty
-    name = "nopenalty" + ('-qtrain' if opt.quantize_training else '')
-    train(
-        0.0,
-        epochs=opt.n_epochs,
-        save=name,
-        quantize_training=opt.quantize_training,
-    )
+    # # no penalty
+    # name = "nopenalty" + ('-qtrain' if opt.quantize_training else '')
+    # train(
+    #     0.0,
+    #     epochs=opt.n_epochs,
+    #     save=name,
+    #     quantize_training=opt.quantize_training,
+    # )
 
     # L1 penalty with fanout weighing
-    penalties = np.logspace(-9, -5, opt.n_models)
+    target_synops = np.logspace(4.0, 6.3, opt.n_models)
     name = "l1-fanout" + ('-qtrain' if opt.quantize_training else '')
-    for p in penalties:
+    for t_syn in target_synops:
         train(
-            p,
+            t_syn,
             epochs=opt.n_epochs,
             save=name,
             quantize_training=opt.quantize_training,
+            as_target_synops=True,
         )

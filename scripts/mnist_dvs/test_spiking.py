@@ -57,7 +57,7 @@ def test_spiking(path_to_weights, w_rescale=1.0):
             outputs = net.spiking_model(input_frames)
 
             synops_df = net.get_synops(3000)
-            synops.append(synops_df['SynOps/s'].sum())
+            synops.append(synops_df['SynOps'].sum())
 
             _, predicted = outputs.sum(0).max(0)
             correctness = (predicted == test_labels.to(device))
