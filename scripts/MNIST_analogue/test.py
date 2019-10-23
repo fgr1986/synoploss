@@ -145,14 +145,17 @@ def tile(a, dim, n_tile):
     return torch.index_select(a, dim, order_index)
 
 if __name__ == '__main__':
-
+    import os
     import argparse
+    from sinabs.from_torch import from_model
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_epochs', type=int, default=20)
-    parser.add_argument('--f_synop_scale', type=float, default=1.)
+    parser.add_argument('--n_times', type=int, default=1)
+    parser.add_argument('--quantize_method', type=str, default="floor")
     opt = parser.parse_args()
 
-    quantize_method = "floor"
+    quantize_method = opt.quantize_method
     model = QianClassifier(qReLU=quantize_method).cuda()
 
     input_tensor = torch.randn(1, 1, 28, 28).cuda()
@@ -163,12 +166,11 @@ if __name__ == '__main__':
     register_model_hook(model, get_synops)
 
     n_epochs = opt.n_epochs
-    scale_down_synops = opt.f_synop_scale
+    scale_down_synops = 0.5
 
-
-    writer = SummaryWriter(log_dir=f"./runs/s{scale_down_synops}")
+    writer = SummaryWriter(log_dir=f"./runs/multiple")
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+#     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     BATCH_SIZE = 512
 
     # Load data
@@ -176,125 +178,124 @@ if __name__ == '__main__':
     dataloader = DataLoader(mnist_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     step = 0
-    pbar = tqdm(range(n_epochs))
-    activation = dict()
-    synops = dict()
-    for epoch in pbar:
-        for data, label in dataloader:
-            step += 1
-            optimizer.zero_grad()
-            out = model(data.cuda())
+    for i_time in range(opt.n_times):
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3/(1+i_time))
+        pbar = tqdm(range(n_epochs))
+        activation = dict()
+        synops = dict()
+        for epoch in pbar:
+            for data, label in dataloader:
+                step += 1
+                optimizer.zero_grad()
+                out = model(data.cuda())
 
-            scalar_activation = read_dict(activation)
-            scalar_synops = read_dict(synops)
-            scalar_max_activation = read_dict(activation, "max")
+                scalar_activation = read_dict(activation)
+                scalar_synops = read_dict(synops)
+                scalar_max_activation = read_dict(activation, "max")
 
-            loss = criterion(out, label.cuda())
-            scalar_synops["total"] -= scalar_synops["conv1"]
-            if scale_down_synops > 0: # and epoch > 10:
-                # limit on synoptic operations
+                loss = criterion(out, label.cuda())
+                scalar_synops["total"] -= scalar_synops["conv1"]
                 synops_loss = scalar_synops["total"]
                 preferred_synops = scale_down_synops * MACs
-                # #limit on total activations
-                # synops_loss = scalar_activation["total"]
-                # preferred_synops = 800
-                loss = ((synops_loss - preferred_synops) / synops_loss) ** 2 + loss
+                if i_time > 0:
+                    loss = ((synops_loss - preferred_synops) / preferred_synops) ** 2 + loss
 
-            # # limit on max of activations
-            # for key in scalar_max_activation:
-            #     max_act = scalar_max_activation[key]
-            #     if "dense" in key:
-            #         preferred_mean_act = 1
-            #     else:
-            #         preferred_mean_act = 4
-            #     loss += ((max_act - preferred_mean_act) / max_act)**2
+                # # limit on max of activations
+                # for key in scalar_max_activation:
+                #     max_act = scalar_max_activation[key]
+                #     if "dense" in key:
+                #         preferred_mean_act = 1
+                #     else:
+                #         preferred_mean_act = 4
+                #     loss += ((max_act - preferred_mean_act) / max_act)**2
 
-            loss.backward()
-            optimizer.step()
+                loss.backward()
+                optimizer.step()
 
-            pbar.set_postfix(loss=loss.item(), activation=scalar_activation["total"].item(),
-                             synops=scalar_synops["total"].item())
-            writer.add_scalar("loss", loss.item(), step)
-            writer.add_scalars("activation", scalar_activation, step)
-            writer.add_scalars("max_activation", scalar_max_activation, step)
-            writer.add_scalars("synops", scalar_synops, step)
+                pbar.set_postfix(loss=loss.item(), activation=scalar_activation["total"].item(),
+                                 synops=scalar_synops["total"].item())
+                writer.add_scalar("loss", loss.item(), step)
+                writer.add_scalars("activation", scalar_activation, step)
+                writer.add_scalars("max_activation", scalar_max_activation, step)
+                writer.add_scalars("synops", scalar_synops, step)
+
+
+
+        dirName = "models"
+        if not os.path.exists(dirName):
+            os.mkdir(dirName)
+            print("Directory ", dirName, " Created ")
+        else:
+            print("Directory ", dirName, " already exists")
+
+        savefile = f'models/multiple_{i_time}.pth'
+        torch.save(model.state_dict(), savefile)
+        print(f"Model saved at {savefile}")
+
+        # Test model
+        test_dataset= MNIST('./data/', train=False, download=True, transform=torchvision.transforms.ToTensor())
+        test_dataloader = DataLoader(test_dataset, batch_size=100, shuffle=True)
+
+        # Test model
+        state_dict = model.state_dict()
+        test_model = QianClassifier(qReLU="floor").cuda()
+        register_model_hook(test_model, get_synops)
+        test_model.load_state_dict(state_dict)
+
+        all_pred = []
+        all_synops = []
+        with torch.no_grad():
+            test_model.eval()
+            for data, label in test_dataloader:
+                out = test_model(data.cuda())
+                _, pred = out.max(1)
+                all_pred.append((pred == label.cuda()).float().mean().item())
+                scalar_synops = read_dict(synops)
+                scalar_synops["total"] -= scalar_synops["conv1"]
+                all_synops.append(scalar_synops["total"].mean().item())
+        ann_accuracy = np.mean(all_pred)
+        ann_synops = np.mean(all_synops)
+        print("Test accuracy after quantize: ", ann_accuracy)
+        print("Test Sops after quantize: ", ann_synops)
+        MACs = ann_synops
+
+        # Test with SINABS on spiking simulation
+        torch_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        net = from_model(
+            test_model,
+            (1, 28, 28),
+            threshold=1.,
+            membrane_subtract=1.,
+            threshold_low=-1.,
+            exclude_negative_spikes=True,
+        ).to(torch_device)
+        net.spiking_model.eval()
+
+        all_pred = []
+        all_synops = []
+        spiking_test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
+        n_dt = 10
+
+        with torch.no_grad():
+            # loop over the input files
+            for i, sample in enumerate(tqdm(spiking_test_dataloader)):
+                if i > 100: break
+                test_data, test_labels = sample
+                input_frames = tile(test_data / n_dt, 0, n_dt).to(torch_device)
+                # we reset the network when changing file
+                net.reset_states()
+                outputs = net.spiking_model(input_frames)
+                synops_df = net.get_synops(0)
+                all_synops.append(synops_df['SynOps'].sum())
+
+                _, predicted = outputs.sum(0).max(0)
+                correctness = (predicted == test_labels.to(torch_device))
+                all_pred.append(correctness.cpu().numpy())
+        snn_accuracy = np.mean(all_pred)
+        snn_synops = np.mean(all_synops)
+        print("Test accuracy after quantize: ", snn_accuracy)
+        print("Test Sops after quantize: ", snn_synops)
+
+        with open("training_log_half_synops.txt", "a") as f:
+            f.write(f"{ann_accuracy} {ann_synops} {snn_accuracy} {snn_synops} {scale_down_synops}\n")
     writer.close()
-
-    import os
-    dirName = "models"
-    if not os.path.exists(dirName):
-        os.mkdir(dirName)
-        print("Directory ", dirName, " Created ")
-    else:
-        print("Directory ", dirName, " already exists")
-
-    savefile = f'models/s{scale_down_synops}.pth'
-    torch.save(model.state_dict(), savefile)
-    print(f"Model saved at {savefile}")
-
-    # Test model
-    test_dataset= MNIST('./data/', train=False, download=True, transform=torchvision.transforms.ToTensor())
-    test_dataloader = DataLoader(test_dataset, batch_size=100, shuffle=True)
-
-    # Test model
-    state_dict = model.state_dict()
-    test_model = QianClassifier(qReLU="floor").cuda()
-    register_model_hook(test_model, get_synops)
-    test_model.load_state_dict(state_dict)
-
-    all_pred = []
-    all_synops = []
-    with torch.no_grad():
-        test_model.eval()
-        for data, label in test_dataloader:
-            out = test_model(data.cuda())
-            _, pred = out.max(1)
-            all_pred.append((pred == label.cuda()).float().mean().item())
-            scalar_synops = read_dict(synops)
-            scalar_synops["total"] -= scalar_synops["conv1"]
-            all_synops.append(scalar_synops["total"].mean().item())
-    ann_accuracy = np.mean(all_pred)
-    ann_synops = np.mean(all_synops)
-    print("Test accuracy after quantize: ", ann_accuracy)
-    print("Test Sops after quantize: ", ann_synops)
-
-    # Test with SINABS on spiking simulation
-    from sinabs.from_torch import from_model
-    torch_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    net = from_model(
-        model,
-        (1, 28, 28),
-        threshold=1.,
-        membrane_subtract=1.,
-        threshold_low=-1.,
-        exclude_negative_spikes=True,
-    ).to(torch_device)
-    net.spiking_model.eval()
-
-    all_pred = []
-    all_synops = []
-    spiking_test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
-    n_dt = 10
-
-    with torch.no_grad():
-        # loop over the input files
-        for i, sample in enumerate(tqdm(spiking_test_dataloader)):
-            # if i > 100: break
-            test_data, test_labels = sample
-            input_frames = tile(test_data / n_dt, 0, n_dt).to(torch_device)
-            # we reset the network when changing file
-            net.reset_states()
-            outputs = net.spiking_model(input_frames)
-            synops_df = net.get_synops(0)
-            all_synops.append(synops_df['SynOps'].sum())
-
-            _, predicted = outputs.sum(0).max(0)
-            correctness = (predicted == test_labels.to(torch_device))
-            all_pred.append(correctness.cpu().numpy())
-    snn_accuracy = np.mean(all_pred)
-    snn_synops = np.mean(all_synops)
-    print("Test accuracy after quantize: ", snn_accuracy)
-    print("Test Sops after quantize: ", snn_synops)
-
-    with open("training_log.txt", "a") as f:
-        f.write(f"{ann_accuracy} {ann_synops} {snn_accuracy} {snn_synops} {scale_down_synops}\n")
