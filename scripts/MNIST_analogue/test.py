@@ -279,7 +279,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             # loop over the input files
             for i, sample in enumerate(tqdm(spiking_test_dataloader)):
-                if i > 100: break
+                # if i > 100: break
                 test_data, test_labels = sample
                 input_frames = tile(test_data / n_dt, 0, n_dt).to(torch_device)
                 # we reset the network when changing file
@@ -296,6 +296,6 @@ if __name__ == '__main__':
         print("Test accuracy after quantize: ", snn_accuracy)
         print("Test Sops after quantize: ", snn_synops)
 
-        with open("training_log_half_synops.txt", "a") as f:
+        with open("training_log_tmp.txt", "a") as f:
             f.write(f"{ann_accuracy} {ann_synops} {snn_accuracy} {snn_synops} {scale_down_synops}\n")
     writer.close()
