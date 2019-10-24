@@ -39,6 +39,12 @@ def detach(activity):
     return np.array(activity)
 
 
+def compute_accuracy(output, target):
+    _, predicted = torch.max(output, 1)
+    acc = (predicted == target).sum().float() / len(target)
+    return acc.cpu().numpy()
+
+
 def test(path, w_rescale=1.0):
     # Define model and learning parameters
     classifier = MNISTClassifier(quantize=opt.quantize_testing).to(device)
@@ -59,6 +65,7 @@ def test(path, w_rescale=1.0):
     with torch.no_grad():
         classifier.eval()
         activity = []
+        accuracy = []
 
         for batch_id, sample in enumerate(tqdm(test_dataloader)):
             if batch_id > opt.max_batches:
@@ -67,39 +74,43 @@ def test(path, w_rescale=1.0):
             test_data, test_labels = sample
             test_data = test_data.to(device)
 
-            _ = classifier(test_data)
+            output = classifier(test_data)
+            accuracy.append(compute_accuracy(output, test_labels.to(device)))
 
             activity.append(activity_tracker())
 
-    return detach(activity)
+    return np.mean(detach(activity), axis=0), np.mean(accuracy)
 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     # test non-optimized model
-    baseline_activity = test('models/nopenalty_0.0.pth')
+    baseline_activity, baseline_accuracy = test('models/nopenalty_0.0.pth')
 
     # test optimized model
-    optimized_activity = test('models/l1-fanout-qtrain_4.0842386526745176e-07.pth')
-
-    # compute reduction in activity
-    baseline_activity = np.mean(baseline_activity, axis=0)
-    optimized_activity = np.mean(optimized_activity, axis=0)
-    total_reduction = np.sum(np.abs(baseline_activity - optimized_activity)) / np.sum(baseline_activity)
+    optimized_activity, optimized_accuracy = test(
+        'models/l1-fanout-qtrain_462932.04169587774.pth')
 
     # plot layer by layer comparison
-    layers = ['ReLU1', 'ReLU2', 'ReLU3', 'ReLU4']
-    fig, ax = plt.subplots()
+    layers = ['ReLU1', 'ReLU2', 'ReLU3']
+    fig, ax = plt.subplots(1, 2, figsize=(8, 4),
+                           gridspec_kw={'width_ratios': [2.5, 1]})
     xticks = np.arange(len(layers))
-    ax.bar(xticks - 0.2, baseline_activity / 1e6, width=0.4, align='center',
-           label="Baseline", color='C3')
-    ax.bar(xticks + 0.2, optimized_activity / 1e6, width=0.4,
-           align='center', label=r"SynOp + Quant., $\alpha = 4.08\times 10^{-7}$", color='C0')
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(layers)
-    ax.set_ylabel(r"Estimated synaptic operations ($\times 10^6$)")
-    ax.legend(loc="upper right")
-    ax.set_title("Synaptic operations per layer, optimized model vs. baseline")
+    ax[0].bar(xticks - 0.2, baseline_activity / 1e6, width=0.4, align='center',
+              label="Baseline", color='C3')
+    ax[0].bar(xticks + 0.2, optimized_activity / 1e6, width=0.4,
+              align='center', label=r"SynOp + Quant., selected model", color='C0')
+    ax[0].set_xticks(xticks)
+    ax[0].set_xticklabels(layers)
+    ax[0].set_ylabel(r"Estimated synaptic operations ($\times 10^6$)")
+    ax[0].legend(loc="upper right")
+
+    ax[1].bar([-0.2], baseline_accuracy, color='C3', width=0.4, align='center')
+    ax[1].bar([+0.2], optimized_accuracy, color='C0', width=0.4, align='center')
+    ax[1].set_xticks([0])
+    ax[1].set_xticklabels(['Accuracy'])
+    ax[1].set_xlim([-0.6, 0.6])
+    # ax.set_title("Synaptic operations per layer, optimized model vs. baseline")
     plt.show()
     fig.savefig('figures/compare.pdf')
