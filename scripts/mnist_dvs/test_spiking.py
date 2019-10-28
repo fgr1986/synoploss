@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-def test_spiking(path_to_weights, w_rescale=1.0):
+def test_spiking(path_to_weights, w_rescale=1.0, return_all_synops=False):
     # instantiate dataloader
     test_dataset = AERFolderDataset(
         root='data/test',
@@ -31,11 +31,11 @@ def test_spiking(path_to_weights, w_rescale=1.0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     net = from_model(
-        model,
+        model.seq,
         in_shape,
         threshold=1.0,
         membrane_subtract=1.0,
-        threshold_low=-1.0
+        threshold_low=None
     ).to(device)
     net.spiking_model.eval()
 
@@ -45,7 +45,7 @@ def test_spiking(path_to_weights, w_rescale=1.0):
     with torch.no_grad():
         # loop over the input files
         for i, sample in enumerate(tqdm(test_dataloader)):
-            if i > 1000: break
+            if i > 2000: break
             test_data, test_labels = sample
             input_frames = test_data[0].to(device)
             input_frames = input_frames.unsqueeze(1)
@@ -57,13 +57,17 @@ def test_spiking(path_to_weights, w_rescale=1.0):
             outputs = net.spiking_model(input_frames)
 
             synops_df = net.get_synops(3000)
-            synops.append(synops_df['SynOps'].sum())
+
+            if return_all_synops:
+                synops.append(synops_df['SynOps'])
+            else:
+                synops.append(synops_df['SynOps'].sum())
 
             _, predicted = outputs.sum(0).max(0)
             correctness = (predicted == test_labels.to(device))
             accuracy.append(correctness.cpu().numpy())
 
-    return np.mean(synops), np.mean(accuracy)
+    return np.mean(synops, axis=0), np.mean(accuracy)
 
 
 if __name__ == '__main__':
@@ -90,7 +94,7 @@ if __name__ == '__main__':
     # Go for testing
     results = np.asarray(P.map(test_spiking, chosen_models)).T
     results = np.vstack([chosen_penalties, results[0], results[1]]).T
-    np.savetxt(f'results/{chosen_name}_spiking.txt',
+    np.savetxt(f'results/{chosen_name}_spiking_nothr.txt',
                results, fmt='%s')
 
     # Use this for a single model, but weight scaling
@@ -98,12 +102,12 @@ if __name__ == '__main__':
     scales = np.arange(0.1, 1.0, 0.05)
     results = np.asarray([test_spiking(model_path, w_scale) for w_scale in scales]).T
     results = np.vstack([scales, results[0], results[1]]).T
-    np.savetxt(f'results/weightscale_spiking.txt',
+    np.savetxt(f'results/weightscale_spiking_nothr.txt',
                results, fmt='%s')
 
     # Test the original model
     model_path = "models/nopenalty_0.0.pth"
     results = test_spiking(model_path, 1.0)
     results = np.asarray([[0.0, results[0], results[1]]])
-    np.savetxt(f'results/nopenalty_spiking.txt',
+    np.savetxt(f'results/nopenalty_spiking_nothr.txt',
                results, fmt='%s')

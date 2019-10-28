@@ -9,6 +9,8 @@ from model import MNISTClassifier
 from aer4manager import AERFolderDataset
 from synoploss import SynOpLoss
 
+from test_spiking import test_spiking
+
 
 # Parameters
 BATCH_SIZE = 256
@@ -83,34 +85,24 @@ def test(path, w_rescale=1.0):
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
     # test non-optimized model
-    baseline_activity, baseline_accuracy = test('models/nopenalty_0.0.pth')
+    baseline_activity, baseline_accuracy = test_spiking(
+        'models/nopenalty_0.0.pth', return_all_synops=True
+    )
 
     # test optimized model
-    optimized_activity, optimized_accuracy = test(
-        'models/l1-fanout-qtrain_462932.04169587774.pth')
+    optimized_activity, optimized_accuracy = test_spiking(
+        'models/l1-fanout-qtrain_321289.514081772.pth',
+        return_all_synops=True
+    )
 
-    # plot layer by layer comparison
-    layers = ['ReLU1', 'ReLU2', 'ReLU3']
-    fig, ax = plt.subplots(1, 2, figsize=(8, 4),
-                           gridspec_kw={'width_ratios': [2.5, 1]})
-    xticks = np.arange(len(layers))
-    ax[0].bar(xticks - 0.2, baseline_activity / 1e6, width=0.4, align='center',
-              label="Baseline", color='C3')
-    ax[0].bar(xticks + 0.2, optimized_activity / 1e6, width=0.4,
-              align='center', label=r"SynOp + Quant., selected model", color='C0')
-    ax[0].set_xticks(xticks)
-    ax[0].set_xticklabels(layers)
-    ax[0].set_ylabel(r"Estimated synaptic operations ($\times 10^6$)")
-    ax[0].legend(loc="upper right")
+    baseline_activity = baseline_activity[baseline_activity > 0]
+    optimized_activity = optimized_activity[optimized_activity > 0]
 
-    ax[1].bar([-0.2], baseline_accuracy, color='C3', width=0.4, align='center')
-    ax[1].bar([+0.2], optimized_accuracy, color='C0', width=0.4, align='center')
-    ax[1].set_xticks([0])
-    ax[1].set_xticklabels(['Accuracy'])
-    ax[1].set_xlim([-0.6, 0.6])
-    # ax.set_title("Synaptic operations per layer, optimized model vs. baseline")
-    plt.show()
-    fig.savefig('figures/compare.pdf')
+    np.savez(
+        'opt_benchmark.npz',
+        baseline_activity=baseline_activity,
+        optimized_activity=optimized_activity,
+        baseline_accuracy=baseline_accuracy,
+        optimized_accuracy=optimized_accuracy
+    )

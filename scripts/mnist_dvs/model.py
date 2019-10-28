@@ -6,6 +6,9 @@ class MNISTClassifier(torch.nn.Module):
     def __init__(self, quantize=False):
         super().__init__()
 
+        self.input_relu = NeuromorphicReLU(quantize=quantize,
+                                           fanout=72)
+
         self.seq = torch.nn.Sequential(
             torch.nn.Conv2d(in_channels=1, out_channels=8,
                             kernel_size=(3, 3), bias=False),
@@ -26,4 +29,5 @@ class MNISTClassifier(torch.nn.Module):
         )
 
     def forward(self, x):
+        x = self.input_relu(x)
         return self.seq(x)
