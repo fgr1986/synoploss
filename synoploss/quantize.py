@@ -54,4 +54,3 @@ class NeuromorphicReLU(torch.nn.Module):
             output = torch.nn.functional.relu(input)
         self.activity = output.sum() / len(output) * self.fanout
         return output
-

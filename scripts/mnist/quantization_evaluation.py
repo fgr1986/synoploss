@@ -52,7 +52,7 @@ for scale in scales:
 
     model = MyModel(quantize=QUANTIZE_TRAIN).cuda()
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     spikecounter = SynOpLoss(model.modules())
 
     # Train model
@@ -86,4 +86,4 @@ for scale in scales:
     print("Test accuracy after quantize: ", np.mean(all_pred))
     results.append([scale, np.mean(all_pred), np.mean(all_counts)])
 
-np.savetxt(f'res2_qtrain_{QUANTIZE_TRAIN}_qtest_{QUANTIZE_TEST}.txt', results)
+np.savetxt(f'res_qtrain_{QUANTIZE_TRAIN}_qtest_{QUANTIZE_TEST}.txt', results)
