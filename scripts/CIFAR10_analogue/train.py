@@ -152,7 +152,8 @@ def train(model, n_epochs=350, b_opt_syn=True, target_synops=0):
     criterion = torch.nn.CrossEntropyLoss()
     synops_criterion = SynOpLoss(model.modules())
     # Define optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.25e-3, weight_decay=0.001)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.25e-3, weight_decay=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.25e-3, momentum=0.9)
     scheduler = MultiStepLR(optimizer, milestones=[int(200. / 350. * n_epochs),
                                                    int(250. / 350. * n_epochs),
                                                    int(300. / 350. * n_epochs)], gamma=0.1)
@@ -181,6 +182,7 @@ def train(model, n_epochs=350, b_opt_syn=True, target_synops=0):
             # add loss of synops optimization
             if b_opt_syn and (target_synops > 0):
                 loss = target_loss + synops_relative_loss
+                # loss = synops_loss # * 0.001
             else:
                 loss = target_loss
             # display in pbar
@@ -194,6 +196,7 @@ def train(model, n_epochs=350, b_opt_syn=True, target_synops=0):
             # backprop
             loss.backward()
             optimizer.step()
+            # print(model.seq[1].weight.grad.mean())
 
         # write to tensorboard
         writer.add_scalar("accuracy_traing", n_correct / n_test, epoch)
@@ -347,8 +350,8 @@ if __name__ == "__main__":
     classifier = CIFAR10AnalogueClassifier(quantize=False, dropout_rate=dropout_rate, last_layer_relu=False).to(device)
     writer = SummaryWriter(log_dir=f"./runs/Nov11_dr{dropout_rate[0]}_{dropout_rate[1]}_time_{-1}")
     str_file_name = f"models/Nov11_d{dropout_rate[0]}_{dropout_rate[1]}_{-1}.pth"
-    classifier = train(classifier, n_epochs=n_epochs, b_opt_syn=False)
-    # classifier.load_state_dict(torch.load(str_file_name))
+    # classifier = train(classifier, n_epochs=n_epochs, b_opt_syn=False)
+    classifier.load_state_dict(torch.load(str_file_name))
     ann_accuracy, ann_synops = test(classifier, b_quantize=False, b_last_layer_relu=False)
     ann_accuracy, ann_synops = test(classifier, b_quantize=False)
 
@@ -357,7 +360,7 @@ if __name__ == "__main__":
     )
     print(f"The MACs of this ANN model is {target_synops}")
     w_scale = target_synops / ann_synops
-
+    print(f"weight scale = {w_scale}")
     if b_save_model:
         save_model(str_file_name, classifier)
 
@@ -366,7 +369,7 @@ if __name__ == "__main__":
         if i < 1:
             w.data *= w_scale
     snn_accuracy, snn_synops = test(classifier, b_quantize=True)
-    snn_accuracy, snn_synops = snn_test(classifier, n_dt=10, n_test=n_test)
+    # snn_accuracy, snn_synops = snn_test(classifier, n_dt=10, n_test=n_test)
     save_to_file(str_log_file, ann_accuracy, ann_synops, snn_accuracy, snn_synops, -1)
 
     # Training with qReLU
