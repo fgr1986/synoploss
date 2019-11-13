@@ -14,11 +14,13 @@ class SynOpLoss(object):
             raise ValueError("No NeuromorphicReLU found in module list.")
 
         self.sum_activations = sum_activations
+        # self.modules[1:] = []
 
     def __call__(self):
         synops = []
         for module in self.modules:
             synops.append(module.activity)
+
         if self.sum_activations:
             synops = torch.stack(synops).sum()
         return synops

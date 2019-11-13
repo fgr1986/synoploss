@@ -348,10 +348,10 @@ if __name__ == "__main__":
 
     # Original baseline of ANN: No quantise ReLU no Optimization on Synops
     classifier = CIFAR10AnalogueClassifier(quantize=False, dropout_rate=dropout_rate, last_layer_relu=False).to(device)
-    writer = SummaryWriter(log_dir=f"./runs/Nov11_dr{dropout_rate[0]}_{dropout_rate[1]}_time_{-1}")
-    str_file_name = f"models/Nov11_d{dropout_rate[0]}_{dropout_rate[1]}_{-1}.pth"
-    # classifier = train(classifier, n_epochs=n_epochs, b_opt_syn=False)
-    classifier.load_state_dict(torch.load(str_file_name))
+    writer = SummaryWriter(log_dir=f"./runs/Nov13_dr{dropout_rate[0]}_{dropout_rate[1]}_time_{-1}")
+    str_file_name = f"models/Nov13_d{dropout_rate[0]}_{dropout_rate[1]}_{-1}.pth"
+    classifier = train(classifier, n_epochs=n_epochs, b_opt_syn=False)
+    # classifier.load_state_dict(torch.load(str_file_name))
     ann_accuracy, ann_synops = test(classifier, b_quantize=False, b_last_layer_relu=False)
     ann_accuracy, ann_synops = test(classifier, b_quantize=False)
 
@@ -359,7 +359,9 @@ if __name__ == "__main__":
         classifier, torch.randn(1, *(input_image_size)).to(device)
     )
     print(f"The MACs of this ANN model is {target_synops}")
-    w_scale = target_synops / ann_synops
+
+    DROPOUT_COMPENSATION = 1.5
+    w_scale = target_synops * DROPOUT_COMPENSATION / ann_synops
     print(f"weight scale = {w_scale}")
     if b_save_model:
         save_model(str_file_name, classifier)
@@ -368,8 +370,8 @@ if __name__ == "__main__":
     for i, w in enumerate(classifier.parameters()):
         if i < 1:
             w.data *= w_scale
-    snn_accuracy, snn_synops = test(classifier, b_quantize=True)
-    # snn_accuracy, snn_synops = snn_test(classifier, n_dt=10, n_test=n_test)
+    # snn_accuracy, snn_synops = test(classifier, b_quantize=True)
+    snn_accuracy, snn_synops = snn_test(classifier, n_dt=10, n_test=n_test)
     save_to_file(str_log_file, ann_accuracy, ann_synops, snn_accuracy, snn_synops, -1)
 
     # Training with qReLU
@@ -389,12 +391,12 @@ if __name__ == "__main__":
         if i_time == 0:
             n_retrain_epochs = n_epochs
         else:
-            n_retrain_epochs = int(n_epochs / 10)
-        writer = SummaryWriter(log_dir=f"./runs/Nov11_dr{dropout_rate[0]}_{dropout_rate[1]}_time_{i_time}")
+            n_retrain_epochs = int(n_epochs / 5)
+        writer = SummaryWriter(log_dir=f"./runs/Nov13_dr{dropout_rate[0]}_{dropout_rate[1]}_time_{i_time}")
         classifier = train(
             classifier,
             n_epochs=n_retrain_epochs,
-            b_opt_syn=True,
+            b_opt_syn=i_time,
             target_synops=target_synops,
         )
         ann_accuracy, ann_synops = test(classifier, b_quantize=True)
@@ -409,5 +411,5 @@ if __name__ == "__main__":
             str_log_file, ann_accuracy, ann_synops, snn_accuracy, snn_synops, i_time
         )
         if b_save_model:
-            str_file_name = f"models/Nov11_d{dropout_rate[0]}_{dropout_rate[1]}_{i_time}.pth"
+            str_file_name = f"models/Nov13_d{dropout_rate[0]}_{dropout_rate[1]}_{i_time}.pth"
             save_model(str_file_name, classifier)
