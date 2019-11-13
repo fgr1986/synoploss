@@ -2,7 +2,7 @@ import torch
 from synoploss import (
     QuantizeLayer,
     NeuromorphicReLU,
-    #DynapSumPoolLayer,
+    DynapSumPoolLayer,
     #DynapConv2dSynops,
 )
 
@@ -139,7 +139,8 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
         if last_layer_relu:
             layer_list.append(NeuromorphicReLU(quantize=quantize, fanout=1))
         layer_list.append(
-            torch.nn.AvgPool2d(kernel_size=(6, 6), stride=(6, 6))
+            DynapSumPoolLayer(kernel_size=(6, 6), stride=(6, 6))
+            # torch.nn.AvgPool2d(kernel_size=(6, 6), stride=(6, 6))
         )
         layer_list.append(
             torch.nn.Flatten()

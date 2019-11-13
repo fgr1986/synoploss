@@ -152,8 +152,8 @@ def train(model, n_epochs=350, b_opt_syn=True, target_synops=0):
     criterion = torch.nn.CrossEntropyLoss()
     synops_criterion = SynOpLoss(model.modules())
     # Define optimizer
-    # optimizer = torch.optim.Adam(model.parameters(), lr=0.25e-3, weight_decay=0.001)
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.25e-3, momentum=0.9)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.25e-3, weight_decay=0.001)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.25e-3, momentum=0.9)
     scheduler = MultiStepLR(optimizer, milestones=[int(200. / 350. * n_epochs),
                                                    int(250. / 350. * n_epochs),
                                                    int(300. / 350. * n_epochs)], gamma=0.1)

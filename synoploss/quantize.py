@@ -41,6 +41,18 @@ class QuantizedSurrogateReLUFunction(torch.autograd.Function):
         return grad_output * (torch.sign(input) + 1.0) / 2.0
 
 
+class DynapSumPoolLayer(torch.nn.AvgPool2d):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, data):
+        if not hasattr(self.kernel_size, "__len__"):
+            kernel = (self.kernel_size, self.kernel_size)
+        else:
+            kernel = self.kernel_size
+        return super().forward(data) * kernel[0] * kernel[1]
+
+
 class NeuromorphicReLU(torch.nn.Module):
     def __init__(self, quantize=True, fanout=1):
         super().__init__()
