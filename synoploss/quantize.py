@@ -18,12 +18,12 @@ quantize = Quantize.apply
 
 
 class QuantizeLayer(nn.Module):
-    def __init__(self, work=True):
+    def __init__(self, quantize=True):
         super().__init__()
-        self.work = work
+        self.quantize = quantize
 
     def forward(self, data):
-        if self.work:
+        if self.quantize:
             return quantize(data)
         else:
             return data
