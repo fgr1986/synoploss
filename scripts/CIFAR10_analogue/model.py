@@ -62,6 +62,7 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
                 bias=False,
             ),
             NeuromorphicReLU(quantize=quantize, fanout=3*3*96),
+            torch.nn.Dropout2d(dropout_rate[1]),
             torch.nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -71,6 +72,7 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
                 bias=False,
             ),
             NeuromorphicReLU(quantize=quantize, fanout=3*3*192/2/2),
+            torch.nn.Dropout2d(dropout_rate[1]),
             torch.nn.Conv2d(
                 in_channels=96,
                 out_channels=192,
@@ -90,6 +92,7 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
                 bias=False,
             ),
             NeuromorphicReLU(quantize=quantize, fanout=3*3*192),
+            torch.nn.Dropout2d(dropout_rate[1]),
             torch.nn.Conv2d(
                 in_channels=192,
                 out_channels=192,
@@ -99,6 +102,7 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
                 bias=False,
             ),
             NeuromorphicReLU(quantize=quantize, fanout=3*3*192/2/2),
+            torch.nn.Dropout2d(dropout_rate[1]),
             torch.nn.Conv2d(
                 in_channels=192,
                 out_channels=192,
@@ -118,6 +122,7 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
                 bias=False,
             ),
             NeuromorphicReLU(quantize=quantize, fanout=1*1*192),
+            torch.nn.Dropout2d(dropout_rate[1]),
             torch.nn.Conv2d(
                 in_channels=192,
                 out_channels=192,
