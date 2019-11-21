@@ -1,9 +1,8 @@
 import torch
 from synoploss import (
-    QuantizeLayer,
     NeuromorphicReLU,
     DynapSumPoolLayer,
-    #DynapConv2dSynops,
+    ScaledDroupout2d,
 )
 
 
@@ -51,6 +50,7 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
 
         self.quantize = quantize
         self.last_layer_relu = last_layer_relu
+        self.dropout_rate = dropout_rate
         layer_list = [torch.nn.Dropout2d(dropout_rate[0]),
             torch.nn.Conv2d(
                 # ignore_synops=True,

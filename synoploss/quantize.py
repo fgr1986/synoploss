@@ -53,6 +53,18 @@ class DynapSumPoolLayer(torch.nn.AvgPool2d):
         return super().forward(data) * kernel[0] * kernel[1]
 
 
+class ScaledDroupout2d(torch.nn.Dropout2d):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, data):
+        if self.training:
+            scale_factor = (1 - self.p)
+        else:
+            scale_factor = 1
+        return super().forward(data) * scale_factor
+
+
 class NeuromorphicReLU(torch.nn.Module):
     def __init__(self, quantize=True, fanout=1):
         super().__init__()
