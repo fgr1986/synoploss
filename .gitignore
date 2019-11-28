@@ -1,3 +1,9 @@
+models/
+results/
+*.pdf
+*.svg
+*.npz
+
 # Workspace
 .vscode
 .python-version
