@@ -45,7 +45,7 @@ def test_spiking(path_to_weights, w_rescale=1.0, return_all_synops=False):
     with torch.no_grad():
         # loop over the input files
         for i, sample in enumerate(tqdm(test_dataloader)):
-            if i > 2000: break
+            # if i > 2000: break
             test_data, test_labels = sample
             input_frames = test_data[0].to(device)
             input_frames = input_frames.unsqueeze(1)

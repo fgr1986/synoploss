@@ -41,47 +41,47 @@ def detach(activity):
     return np.array(activity)
 
 
-def compute_accuracy(output, target):
-    _, predicted = torch.max(output, 1)
-    acc = (predicted == target).sum().float() / len(target)
-    return acc.cpu().numpy()
+# def compute_accuracy(output, target):
+#     _, predicted = torch.max(output, 1)
+#     acc = (predicted == target).sum().float() / len(target)
+#     return acc.cpu().numpy()
 
 
-def test(path, w_rescale=1.0):
-    # Define model and learning parameters
-    classifier = MNISTClassifier(quantize=opt.quantize_testing).to(device)
+# def test(path, w_rescale=1.0):
+#     # Define model and learning parameters
+#     classifier = MNISTClassifier(quantize=opt.quantize_testing).to(device)
 
-    # Load appropriate model
-    state_dict = torch.load(path)
+#     # Load appropriate model
+#     state_dict = torch.load(path)
 
-    # Do rescaling
-    if w_rescale != 1.0:
-        state_dict['seq.0.weight'] *= w_rescale
+#     # Do rescaling
+#     if w_rescale != 1.0:
+#         state_dict['seq.0.weight'] *= w_rescale
 
-    classifier.load_state_dict(state_dict)
+#     classifier.load_state_dict(state_dict)
 
-    # Set hooks
-    activity_tracker = SynOpLoss(classifier.modules(), sum_activations=False)
+#     # Set hooks
+#     activity_tracker = SynOpLoss(classifier.modules(), sum_activations=False)
 
-    # Test network accuracy
-    with torch.no_grad():
-        classifier.eval()
-        activity = []
-        accuracy = []
+#     # Test network accuracy
+#     with torch.no_grad():
+#         classifier.eval()
+#         activity = []
+#         accuracy = []
 
-        for batch_id, sample in enumerate(tqdm(test_dataloader)):
-            if batch_id > opt.max_batches:
-                break
+#         for batch_id, sample in enumerate(tqdm(test_dataloader)):
+#             if batch_id > opt.max_batches:
+#                 break
 
-            test_data, test_labels = sample
-            test_data = test_data.to(device)
+#             test_data, test_labels = sample
+#             test_data = test_data.to(device)
 
-            output = classifier(test_data)
-            accuracy.append(compute_accuracy(output, test_labels.to(device)))
+#             output = classifier(test_data)
+#             accuracy.append(compute_accuracy(output, test_labels.to(device)))
 
-            activity.append(activity_tracker())
+#             activity.append(activity_tracker())
 
-    return np.mean(detach(activity), axis=0), np.mean(accuracy)
+#     return np.mean(detach(activity), axis=0), np.mean(accuracy)
 
 
 if __name__ == '__main__':
