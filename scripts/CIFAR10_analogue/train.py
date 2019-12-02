@@ -308,10 +308,10 @@ def save_model(str_file_name, model):
 
 
 def save_to_file(
-        str_log_file, ann_accuracy, ann_synops, snn_accuracy, snn_synops, i_time
+        str_log_file, ann_accuracy, ann_synops, i_time
 ):
     with open(str_log_file, "a") as f:
-        f.write(f"{ann_accuracy} {ann_synops} {snn_accuracy} {snn_synops} {i_time}\n")
+        f.write(f"{ann_accuracy} {ann_synops} {i_time}\n")
 
 
 def str2bool(v):
@@ -330,11 +330,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--n_epochs", type=int, default=350)
-    parser.add_argument("--n_times", type=int, default=10)
+    parser.add_argument("--n_times", type=int, default=31)
     parser.add_argument("--n_test", type=int, default=10000)
     parser.add_argument("--b_save_model", type=str2bool, default=True)
-    parser.add_argument("--str_log_file", type=str, default="log.txt")
-    parser.add_argument("--target_scale", type=float, default=0.5)
+    parser.add_argument("--str_log_file", type=str, default="log_train.txt")
     opt = parser.parse_args()
 
     print(opt)
@@ -343,15 +342,14 @@ if __name__ == "__main__":
     n_times = opt.n_times
     b_save_model = opt.b_save_model
     str_log_file = opt.str_log_file
-    target_scale = opt.target_scale
     dropout_rate = (0.2, 0.1)
 
     # Original baseline of ANN: No quantise ReLU no Optimization on Synops
     classifier = CIFAR10AnalogueClassifier(quantize=False, dropout_rate=dropout_rate, last_layer_relu=False).to(device)
-    writer = SummaryWriter(log_dir=f"./runs/Nov22_dr{dropout_rate[0]}_{dropout_rate[1]}_time_{-1}")
-    str_file_name = f"models/Nov22_d{dropout_rate[0]}_{dropout_rate[1]}_{-1}.pth"
-#     classifier = train(classifier, n_epochs=n_epochs, b_opt_syn=False)
-    classifier.load_state_dict(torch.load(str_file_name))
+    writer = SummaryWriter(log_dir=f"./runs/dr{dropout_rate[0]}_{dropout_rate[1]}_time_{-1}")
+    str_file_name = f"models/d{dropout_rate[0]}_{dropout_rate[1]}_{-1}.pth"
+    classifier = train(classifier, n_epochs=n_epochs, b_opt_syn=False)
+    # classifier.load_state_dict(torch.load(str_file_name))
     ann_accuracy, ann_synops = test(classifier, b_quantize=False, b_last_layer_relu=False)
     ann_accuracy, ann_synops = test(classifier, b_quantize=False)
 
@@ -369,29 +367,14 @@ if __name__ == "__main__":
     for i, w in enumerate(classifier.parameters()):
         if i < 1:
             w.data *= w_scale
-    snn_accuracy, snn_synops = test(classifier, b_quantize=True)
-#     snn_accuracy, snn_synops = snn_test(classifier, n_dt=10, n_test=n_test)
-    save_to_file(str_log_file, ann_accuracy, ann_synops, snn_accuracy, snn_synops, -1)
 
-    # Training with qReLU
+    save_to_file(str_log_file, ann_accuracy, ann_synops, -1)
+
     classifier = CIFAR10AnalogueClassifier(quantize=True, dropout_rate=dropout_rate, last_layer_relu=True).to(device)
     classifier.load_state_dict(torch.load(str_file_name))
-    n_layers = len(list(classifier.parameters()))
-    ann_accuracy, ann_synops = test(classifier, b_quantize=False)
-    for i, w in enumerate(classifier.parameters()):
-        if i < 1:
-            w.data *= w_scale
-        elif i == n_layers - 1:
-            w.data /= w_scale
-
-    ann_accuracy, ann_synops = test(classifier, b_quantize=True)
-
-    for i_time in range(n_times):
-        if i_time == 0:
-            n_retrain_epochs = n_epochs
-        else:
-            n_retrain_epochs = int(n_epochs / 1)
-        writer = SummaryWriter(log_dir=f"./runs/Nov23_dr{dropout_rate[0]}_{dropout_rate[1]}_time_{i_time}")
+    for i_time in range(0, n_times):
+        n_retrain_epochs = n_epochs
+        writer = SummaryWriter(log_dir=f"./runs/dr{dropout_rate[0]}_{dropout_rate[1]}_time_{i_time}")
         classifier = train(
             classifier,
             n_epochs=n_retrain_epochs,
@@ -399,16 +382,16 @@ if __name__ == "__main__":
             target_synops=target_synops,
         )
         ann_accuracy, ann_synops = test(classifier, b_quantize=True)
-        snn_accuracy = ann_accuracy
-        snn_synops = ann_synops
-#         snn_accuracy, snn_synops = snn_test(classifier, n_dt=10, n_test=n_test)
-#         if (ann_synops / target_synops > 1.5) and (i_time > 0):
-#             target_scale /= 1.5
-        target_synops = ann_synops #* target_scale
-
+        if i_time < 16:
+            scale_down_factor = 1
+        elif i_time < 29:
+            scale_down_factor = 0.7
+        else:
+            i_time = 0.1
+        target_synops = ann_synops * scale_down_factor
         save_to_file(
-            str_log_file, ann_accuracy, ann_synops, snn_accuracy, snn_synops, i_time
+            str_log_file, ann_accuracy, ann_synops, i_time
         )
         if b_save_model:
-            str_file_name = f"models/Nov23_d{dropout_rate[0]}_{dropout_rate[1]}_{i_time}.pth"
+            str_file_name = f"models/d{dropout_rate[0]}_{dropout_rate[1]}_{i_time}.pth"
             save_model(str_file_name, classifier)

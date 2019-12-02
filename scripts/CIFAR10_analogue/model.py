@@ -2,8 +2,8 @@ import torch
 from synoploss import (
     NeuromorphicReLU,
     DynapSumPoolLayer,
-    ScaledDroupout2d,
 )
+
 
 class CIFAR10AnalogueClassifier(torch.nn.Module):
     def __init__(self, quantize=False, dropout_rate=(0.2, 0.5), last_layer_relu=True):
@@ -14,7 +14,6 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
         self.dropout_rate = dropout_rate
         layer_list = [torch.nn.Dropout2d(dropout_rate[0]),
             torch.nn.Conv2d(
-                # ignore_synops=True,
                 in_channels=3,
                 out_channels=96,
                 kernel_size=(3, 3),
