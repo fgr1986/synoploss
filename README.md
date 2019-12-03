@@ -29,7 +29,7 @@ For this, you will also need the `aer4manager` software, available in a separate
 Add the `--quantize_training` flag if you would like to add quantization-aware training. Models are saved in the `models/` folder.
 Training-time estimates on activity and accuracy, loss, corresponding saved file, and various hyperparameters are saved in `training_log.txt`.
 
-4. You can test these models on a Sinabs spiking network using `test_spiking.py`. You will need to install [Sinabs](gitlab.com/aiCTX/sinabs) for this. You must use the `--mode` flag, specifying 'quantized' (tests all the models trained with quantization), 'nonquantized' (tests the models without quantization at training time), 'nopenalty' (tests the single model called nopenalty, the one without synoploss) or 'weightscaling' (tests the nopenalty model multiple times with weight rescaling).
+4. You can test these models on a Sinabs spiking network using `test_spiking.py`. You will need to install [Sinabs](http://gitlab.com/aiCTX/sinabs) for this. You must use the `--mode` flag, specifying 'quantized' (tests all the models trained with quantization), 'nonquantized' (tests the models without quantization at training time), 'nopenalty' (tests the single model called nopenalty, the one without synoploss) or 'weightscaling' (tests the nopenalty model multiple times with weight rescaling).
 
 5. `optimization_benchmarking.py` can be optionally used for more detailed testing of a single model.
 
