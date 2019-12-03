@@ -1,7 +1,7 @@
 from aer4manager import aedatconvert
 import os
 
-root = '/home/martino/StorageRoom/datasets/MNIST_DVS'
+root = 'MNIST_DVS/'
 os.makedirs('data', exist_ok=True)
 
 for fraction in ['train', 'test']:

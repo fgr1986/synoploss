@@ -73,41 +73,72 @@ def test_spiking(path_to_weights, w_rescale=1.0, return_all_synops=False):
 if __name__ == '__main__':
     from multiprocessing import Pool
     import os
+    import argparse
     os.makedirs('results', exist_ok=True)
     P = Pool(4)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--mode', type='string', default=False,
+        help='one of "nonquantized", "quantized", "nopenalty", "weightscale"')
+    opt = parser.parse_args()
 
     # Get the whole list of trained models
     f = np.loadtxt('training_log.txt', dtype=str).T
     names, penalties, models = f[0], f[1].astype(np.float), f[-1]
 
-    # Select one kind of model, and test them all
-    chosen_name = "l1-fanout-qtrain"
-    print(chosen_name)
-    idx = names == chosen_name
-    chosen_models = models[idx]
-    chosen_penalties = penalties[idx]
+    if opt.mode == 'quantized':
+        # Select one kind of model, and test them all
+        chosen_name = "l1-fanout-qtrain"
+        print(chosen_name)
+        idx = names == chosen_name
+        chosen_models = models[idx]
+        chosen_penalties = penalties[idx]
 
-    # check quantization during training
-    was_quantized_training = f[3][idx] == 'True'
-    assert all(was_quantized_training)
+        # check quantization during training
+        was_quantized_training = f[3][idx] == 'True'
+        assert all(was_quantized_training)
 
-    # Go for testing
-    results = np.asarray(P.map(test_spiking, chosen_models)).T
-    results = np.vstack([chosen_penalties, results[0], results[1]]).T
-    np.savetxt(f'results/{chosen_name}_spiking_nothr.txt',
-               results, fmt='%s')
+        # Go for testing
+        results = np.asarray(P.map(test_spiking, chosen_models)).T
+        results = np.vstack([chosen_penalties, results[0], results[1]]).T
+        np.savetxt(f'results/{chosen_name}_spiking_nothr.txt',
+                   results, fmt='%s')
 
-    # Use this for a single model, but weight scaling
-    model_path = "models/nopenalty_0.0.pth"
-    scales = np.arange(0.1, 1.0, 0.05)
-    results = np.asarray([test_spiking(model_path, w_scale) for w_scale in scales]).T
-    results = np.vstack([scales, results[0], results[1]]).T
-    np.savetxt(f'results/weightscale_spiking_nothr.txt',
-               results, fmt='%s')
+    elif opt.mode == 'nonquantized':
+        # Select one kind of model, and test them all
+        chosen_name = "l1-fanout"
+        print(chosen_name)
+        idx = names == chosen_name
+        chosen_models = models[idx]
+        chosen_penalties = penalties[idx]
 
-    # Test the original model
-    model_path = "models/nopenalty_0.0.pth"
-    results = test_spiking(model_path, 1.0)
-    results = np.asarray([[0.0, results[0], results[1]]])
-    np.savetxt(f'results/nopenalty_spiking_nothr.txt',
-               results, fmt='%s')
+        # check quantization during training
+        was_quantized_training = f[3][idx] == 'True'
+        assert all(~was_quantized_training)
+
+        # Go for testing
+        results = np.asarray(P.map(test_spiking, chosen_models)).T
+        results = np.vstack([chosen_penalties, results[0], results[1]]).T
+        np.savetxt(f'results/{chosen_name}_spiking_nothr.txt',
+                   results, fmt='%s')
+
+    elif opt.mode == 'weightscale':
+        # Use this for a single model, but weight scaling
+        model_path = "models/nopenalty_0.0.pth"
+        scales = np.arange(0.1, 1.0, 0.05)
+        results = np.asarray([test_spiking(model_path, w_scale) for w_scale in scales]).T
+        results = np.vstack([scales, results[0], results[1]]).T
+        np.savetxt(f'results/weightscale_spiking_nothr.txt',
+                   results, fmt='%s')
+
+    elif opt.mode == 'nopenalty':
+        # Test the original model
+        model_path = "models/nopenalty_0.0.pth"
+        results = test_spiking(model_path, 1.0)
+        results = np.asarray([[0.0, results[0], results[1]]])
+        np.savetxt(f'results/nopenalty_spiking_nothr.txt',
+                   results, fmt='%s')
+
+    else:
+        raise ValueError("Unknown mode")
