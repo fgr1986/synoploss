@@ -4,7 +4,7 @@ Repository for code and examples related to quantization-aware training of spiki
 and SynOp loss for lowering power consumption. This is the code that was used to obtain the results of the following paper:
 
 Martino Sorbaro, Qian Liu, Massimo Bortone, and Sadique Sheik.
-Optimizing the energy consumption of spiking neural networks for neuromorphic applications. (2019)
+*Optimizing the energy consumption of spiking neural networks for neuromorphic applications.* (2019)
 
 Please cite that paper if you use this code in an academic publication.
 
@@ -34,3 +34,5 @@ Training-time estimates on activity and accuracy, loss, corresponding saved file
 5. `optimization_benchmarking.py` can be optionally used for more detailed testing of a single model.
 
 6. Use the `GeneratePlots.ipynb` Jupyter notebook to create the figures in the paper.
+
+Reproducing other people's results and understanding other people's code is always challenging. Feel free to email us if you need help.
