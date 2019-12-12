@@ -10,13 +10,13 @@ Please cite that paper if you use this code in an academic publication.
 
 ## Contents
 
-- `synoploss/`: contains code for quantizing networks and for computing the SynOp count
-- `tests/`: contains tests for the previous code
-- `scripts/`: contains the training and simulations presented in the paper
+- `mnist_dvs/`: contains code for training on the event-based MNIST-DVS dataset (see below)
+- `CIFAR10_analogue/`: code for training on CIFAR10
+- `mnist_quant_only/`: experiments on analogue MNIST without SynOpLoss, not included in the paper
 
 ## Reproducing the mnist-dvs training
 
-The code necessary for this purpose is in the `scripts/mnist_dvs` folder.
+The code necessary for this purpose is in the `mnist_dvs` folder.
 
 1. First, download the dataset from [the Seville microelectronic institute's website](http://www2.imse-cnm.csic.es/caviar/MNISTDVS.html)
 and unzip them in the MNIST_DVS folder.
