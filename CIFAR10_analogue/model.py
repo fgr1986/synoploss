@@ -1,5 +1,5 @@
 import torch
-from sinabs.layers import NeuromorphicReLU, DynapSumPoolLayer
+from sinabs.layers import NeuromorphicReLU, SumPool2d
 
 
 class CIFAR10AnalogueClassifier(torch.nn.Module):
@@ -101,7 +101,7 @@ class CIFAR10AnalogueClassifier(torch.nn.Module):
         if last_layer_relu:
             layer_list.append(NeuromorphicReLU(quantize=quantize, fanout=1))
         layer_list.append(
-            DynapSumPoolLayer(kernel_size=(8, 8), stride=(8, 8))
+            SumPool2d(kernel_size=(8, 8), stride=(8, 8))
             # torch.nn.AvgPool2d(kernel_size=(6, 6), stride=(6, 6))
         )
         layer_list.append(
