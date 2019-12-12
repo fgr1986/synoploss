@@ -1,7 +1,7 @@
 import torch
 from sinabs.from_torch import from_model
 from model import MNISTClassifier
-from aer4manager import AERFolderDataset
+from aermanager import AERFolderDataset
 import numpy as np
 from tqdm import tqdm
 

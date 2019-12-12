@@ -1,8 +1,5 @@
 import torch
-from synoploss import (
-    NeuromorphicReLU,
-    DynapSumPoolLayer,
-)
+from sinabs.layers import NeuromorphicReLU, DynapSumPoolLayer
 
 
 class CIFAR10AnalogueClassifier(torch.nn.Module):

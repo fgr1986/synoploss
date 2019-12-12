@@ -1,4 +1,4 @@
-from aer4manager import aedatconvert
+from aermanager import aedatconvert
 import os
 
 root = 'MNIST_DVS/'

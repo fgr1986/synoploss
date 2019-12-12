@@ -1,6 +1,6 @@
 from model import CIFAR10AnalogueClassifier
 from tqdm import tqdm
-from synoploss import SynOpLoss
+from sinabs import SynOpCounter
 from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -150,7 +150,7 @@ def train(model, n_epochs=350, b_opt_syn=True, target_synops=0):
 
     # Define loss
     criterion = torch.nn.CrossEntropyLoss()
-    synops_criterion = SynOpLoss(model.modules())
+    synops_criterion = SynOpCounter(model.modules())
     # Define optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=0.25e-3, weight_decay=0.001)
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.25e-3, momentum=0.9)
@@ -219,7 +219,7 @@ def test(model, b_quantize=True, b_last_layer_relu=True, b_validation=False):
 
     # Define loss
     criterion = torch.nn.CrossEntropyLoss()
-    synops_criterion = SynOpLoss(test_model.modules())
+    synops_criterion = SynOpCounter(test_model.modules())
 
     # With no gradient means less memory and calculation on forward pass
     with torch.no_grad():

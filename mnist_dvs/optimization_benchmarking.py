@@ -61,7 +61,7 @@ def detach(activity):
 #     classifier.load_state_dict(state_dict)
 
 #     # Set hooks
-#     activity_tracker = SynOpLoss(classifier.modules(), sum_activations=False)
+#     activity_tracker = SynOpCounter(classifier.modules(), sum_activations=False)
 
 #     # Test network accuracy
 #     with torch.no_grad():
