@@ -5,10 +5,7 @@ import torchvision.transforms as ttr
 from torch.utils.data import DataLoader
 import argparse
 
-from model import MNISTClassifier
-from aer4manager import AERFolderDataset
-from synoploss import SynOpLoss
-
+from aermanager import AERFolderDataset
 from test_spiking import test_spiking
 
 
