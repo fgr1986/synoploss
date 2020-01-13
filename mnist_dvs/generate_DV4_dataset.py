@@ -1,12 +1,12 @@
-from aermanager import aedatconvert
+from aermanager import AedatConvert
 import os
 
-root = 'MNIST_DVS/'
+root = '/home/martino/StorageRoom/datasets/MNIST_DVS'
 os.makedirs('data', exist_ok=True)
 
 for fraction in ['train', 'test']:
 
-    aedatconvert(
+    AedatConvert(
         data_list_file=root+f'/mnistdvs_filelist_{fraction}.txt',
         accumulation_method='spikecount',
         accumulation_value=3000,
