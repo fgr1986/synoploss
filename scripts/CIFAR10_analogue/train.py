@@ -89,6 +89,7 @@ def prepare():
 
     # Torch device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
 
     # Model folder to save trained models
     os.makedirs("models", exist_ok=True)

@@ -23,7 +23,7 @@ setup(
     version="0.1.0",
     packages=["synoploss"],
     license="GNU AGPLv3, Copyright (c) 2019 aiCTX AG",
-    install_requires=['numpy', 'torch'],
+    install_requires=['numpy', 'torch', 'tqdm', 'pytest', 'torchvision', 'tensorboard', 'sinabs'],
     long_description=open("README.md").read(),
 )
 
