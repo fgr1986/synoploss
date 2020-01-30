@@ -7,8 +7,8 @@ import torchvision.transforms as ttr
 from torch.utils.data import DataLoader
 
 from model import MNISTClassifier
-from aer4manager import AERFolderDataset
-from synoploss import SynOpLoss
+from aermanager import AERFolderDataset
+from sinabs import SynOpCounter
 
 
 def compute_accuracy(output, target):
@@ -52,7 +52,7 @@ def train(penalty_coefficient,
     classifier = MNISTClassifier(quantize=quantize_training).to(device)
     # Define loss
     criterion = torch.nn.CrossEntropyLoss()
-    synops_criterion = SynOpLoss(classifier.modules())
+    synops_criterion = SynOpCounter(classifier.modules())
     # Define optimizer
     optimizer = torch.optim.Adam(classifier.parameters(), lr=1e-3)
 

@@ -47,7 +47,7 @@ if __name__ == "__main__":
     classifier.load_state_dict(torch.load(str_file_name))
     ann_accuracy, ann_synops = test(classifier, b_quantize=False)
     save_to_file(
-        str_log_file, ann_accuracy, target_synops, 0, 0, -1
+        str_log_file, ann_accuracy, target_synops, -1
     )
 
     classifier = CIFAR10AnalogueClassifier(quantize=True, dropout_rate=dropout_rate, last_layer_relu=True).to(device)

@@ -3,6 +3,7 @@ results/
 *.pdf
 *.svg
 *.npz
+.idea
 
 # Workspace
 .vscode

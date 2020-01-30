@@ -1,7 +1,7 @@
 import torch
 from sinabs.from_torch import from_model
 from model import MNISTClassifier
-from aer4manager import AERFolderDataset
+from aermanager import AERFolderDataset
 import numpy as np
 from tqdm import tqdm
 
@@ -48,7 +48,6 @@ def test_spiking(path_to_weights, w_rescale=1.0, return_all_synops=False):
             # if i > 2000: break
             test_data, test_labels = sample
             input_frames = test_data[0].to(device)
-            input_frames = input_frames.unsqueeze(1)
 
             # we reset the network when changing file
             net.reset_states()
@@ -79,7 +78,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--mode', type='string', default=False,
+        '--mode', type=str, default=False,
         help='one of "nonquantized", "quantized", "nopenalty", "weightscale"')
     opt = parser.parse_args()
 

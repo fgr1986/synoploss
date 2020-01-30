@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from synoploss import NeuromorphicReLU, QuantizeLayer
+from sinabs.layers import NeuromorphicReLU, QuantizeLayer
 
 
 class MyModel(torch.nn.Module):

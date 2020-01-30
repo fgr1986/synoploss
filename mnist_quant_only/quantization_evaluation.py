@@ -60,7 +60,7 @@ for scale in scales:
     test_model_q.load_state_dict(state_dict)
     test_model_a.load_state_dict(state_dict)
 
-    # spikecounter = SynOpLoss(test_model_q.modules())
+    # spikecounter = SynOpCounter(test_model_q.modules())
 
     # Test
     all_pred_q = []

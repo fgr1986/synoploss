@@ -5,10 +5,7 @@ import torchvision.transforms as ttr
 from torch.utils.data import DataLoader
 import argparse
 
-from model import MNISTClassifier
-from aer4manager import AERFolderDataset
-from synoploss import SynOpLoss
-
+from aermanager import AERFolderDataset
 from test_spiking import test_spiking
 
 
@@ -61,7 +58,7 @@ def detach(activity):
 #     classifier.load_state_dict(state_dict)
 
 #     # Set hooks
-#     activity_tracker = SynOpLoss(classifier.modules(), sum_activations=False)
+#     activity_tracker = SynOpCounter(classifier.modules(), sum_activations=False)
 
 #     # Test network accuracy
 #     with torch.no_grad():

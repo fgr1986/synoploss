@@ -6,8 +6,8 @@ from torch.utils.data import DataLoader
 import argparse
 
 from model import MNISTClassifier
-from aer4manager import AERFolderDataset
-from synoploss import SynOpLoss
+from aermanager import AERFolderDataset
+from sinabs import SynOpCounter
 
 
 def compute_accuracy(output, target):
@@ -59,7 +59,7 @@ def test(path, w_rescale=1.0):
     classifier.load_state_dict(state_dict)
 
     # Set hooks
-    activity_tracker = SynOpLoss(classifier.modules())
+    activity_tracker = SynOpCounter(classifier.modules())
 
     # Test network accuracy
     with torch.no_grad():

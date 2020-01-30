@@ -1,5 +1,5 @@
 import torch
-from aer4manager import AERFolderDataset
+from aermanager import AERFolderDataset
 import torchvision.transforms as ttr
 from torch.utils.data import DataLoader
 from model import MNISTClassifier
